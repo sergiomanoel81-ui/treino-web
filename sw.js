@@ -1,4 +1,4 @@
-const CACHE = "treino-v2";
+const CACHE = "treino-v3";
 const CORE = [
   "./",
   "index.html",

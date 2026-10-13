@@ -227,3 +227,29 @@ body[data-estilo="brutalista"] .step, body[data-estilo="brutalista"] .stepval, b
 body[data-estilo="brutalista"] .check.on { background: var(--accent); color: #fff; }
 body[data-estilo="brutalista"] .fab { border: 2.5px solid #111; box-shadow: 4px 4px 0 #111; color: #fff; }
 body[data-estilo="brutalista"] .wu-head { color: #9A6B00; }
+
+/* Card Continuar (Início) */
+.continuar { background: var(--s2); border-radius: 20px; padding: 20px; margin-bottom: 10px; background-size: cover; background-position: center; box-shadow: 0 10px 28px rgba(0,0,0,0.26); }
+.continuar.hasimg { min-height: 180px; display: flex; flex-direction: column; justify-content: flex-end; color: #fff; }
+.cont-eyebrow { font-size: 11.5px; font-weight: 800; letter-spacing: 0.8px; color: var(--accent); text-transform: uppercase; }
+.continuar.hasimg .cont-eyebrow { color: #fff; opacity: .92; }
+.cont-title { font-size: 26px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.08; margin-top: 6px; color: var(--ink); }
+.continuar.hasimg .cont-title { color: #fff; }
+.cont-meta { font-size: 13.5px; color: var(--ink2); margin-top: 6px; }
+.continuar.hasimg .cont-meta { color: #E5E7EB; }
+.continuar .btn.primary { margin-top: 16px; width: 100%; }
+.weekline { font-size: 12.5px; color: var(--ink3); margin: 4px 2px 14px; font-weight: 600; }
+
+/* Abas de dia (tela do programa) */
+.daytabs { display: flex; gap: 7px; overflow-x: auto; margin: 6px 0 14px; padding-bottom: 2px; scrollbar-width: none; }
+.daytabs::-webkit-scrollbar { display: none; }
+.dtab { flex: 0 0 auto; padding: 8px 15px; border-radius: 999px; background: var(--s1); color: var(--ink2); border: 1px solid var(--line); font-weight: 700; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.dtab.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.dtab.add { color: var(--accent); font-size: 16px; padding: 8px 13px; }
+.dayhead { display: flex; align-items: center; gap: 8px; margin: 2px 2px 12px; }
+.dayhead .col { flex: 1; }
+
+body[data-estilo="brutalista"] .continuar { border: 2.5px solid #111; box-shadow: 4px 4px 0 #111; }
+body[data-estilo="brutalista"] .cont-title { text-transform: uppercase; }
+body[data-estilo="brutalista"] .dtab { border: 2.5px solid #111; background: #fff; color: #111; box-shadow: 2px 2px 0 #111; }
+body[data-estilo="brutalista"] .dtab.on { background: var(--accent); color: #fff; }

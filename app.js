@@ -6,7 +6,7 @@ const PERFIS = [
   { id: "clara", nome: "Clara", accent: "#3DDC97" },
 ];
 const perfil = (id) => PERFIS.find((p) => p.id === id) || PERFIS[0];
-const MULTI = false; // perfil único (Sérgio) por enquanto; Clara fica no JSON stand-by
+const MULTI = true; // Sérgio + Clara
 
 const ESTILOS = {
   editorial: { nome: "Editorial", vibe: "tipografia grande, minimal", accent: "#4F8CFF", accentInk: "#06101A", bg: "#0C0D10" },
@@ -201,7 +201,52 @@ function programaV2() {
     ],
   };
 }
-const TEMPLATES = [programaV2(), programaBase()];
+function programaClara() {
+  const mob = { titulo: "Mobilidade", desc: "90/90 de quadril, agachamento profundo apoiado, gato-camelo, rotação torácica e tornozelo — ~8 min." };
+  const aq = { titulo: "Aquecimento", desc: "5 min de bike/esteira leve + mobilidade de quadril e ombro." };
+  return {
+    nome: "Clara — Emagrecimento & Lombar (5 dias)",
+    treinos: [
+      { nome: "Força A (full body)", tab: "D1", aquecimento: [aq], exercicios: [
+        ex("Agachamento búlgaro com halteres", 3, null, null, "10 / perna", "Unilateral"),
+        ex("Elevação pélvica (hip thrust)", 3, 12, 12, null, "Glúteo"),
+        ex("Supino na máquina", 3, 12, 12, null, "Peito"),
+        ex("Puxada alta (pulldown)", 3, 12, 12, null, "Costas"),
+        ex("Dead bug", 3, null, null, "10 / lado", "Core"),
+      ]},
+      { nome: "Funcional (mobilidade + pliometria + cardio)", tab: "D2", aquecimento: [mob], exercicios: [
+        ex("Step-up com impulso", 3, null, null, "8 / perna", "Pliometria"),
+        ex("Skater lateral", 3, null, null, "10 / lado", "Pliometria"),
+        ex("Saltinhos no lugar (pogo)", 3, null, null, "20s", "Pliometria"),
+        ex("Arremesso de medicine ball", 3, 8, 8, null, "Potência"),
+        ex("Cardio intervalado (1min forte / 2min leve)", 1, null, null, "12-15 min", "Cardio"),
+      ]},
+      { nome: "Força B (full body)", tab: "D3", aquecimento: [aq], exercicios: [
+        ex("Afundo (lunge) andando", 3, null, null, "10 / perna", "Unilateral"),
+        ex("Mesa flexora", 3, 12, 12, null, "Posterior"),
+        ex("Desenvolvimento na máquina", 3, 12, 12, null, "Ombro"),
+        ex("Remada baixa na polia", 3, 12, 12, null, "Costas"),
+        ex("Prancha lateral", 3, null, null, "20-30s / lado", "Core"),
+      ]},
+      { nome: "Funcional (mobilidade + pliometria + cardio)", tab: "D4", aquecimento: [mob], exercicios: [
+        ex("Step-up com impulso", 3, null, null, "8 / perna", "Pliometria"),
+        ex("Skater lateral", 3, null, null, "10 / lado", "Pliometria"),
+        ex("Elevação de joelhos (marcha)", 3, null, null, "30s", "Cardio"),
+        ex("Arremesso de medicine ball (rotacional)", 3, null, null, "8 / lado", "Potência"),
+        ex("Cardio intervalado (1min forte / 2min leve)", 1, null, null, "12-15 min", "Cardio"),
+      ]},
+      { nome: "Força C (full body) + core", tab: "D5", aquecimento: [aq], exercicios: [
+        ex("Leg press", 3, 12, 12, null, "Pernas"),
+        ex("Extensão lombar 45° (peso do corpo)", 3, 12, 12, null, "Lombar"),
+        ex("Supino inclinado com halteres", 3, 12, 12, null, "Peito"),
+        ex("Barra fixa ou puxada (pegada neutra)", 3, 12, 12, null, "Costas"),
+        ex("Press Pallof (anti-rotação)", 3, null, null, "10 / lado", "Core"),
+        ex("Bird-dog", 3, null, null, "8 / lado", "Core"),
+      ]},
+    ],
+  };
+}
+const TEMPLATES = [programaClara(), programaV2(), programaBase()];
 
 /* ---------- Estado / storage ---------- */
 const KEY = "treino-web";
@@ -213,6 +258,7 @@ function load() {
   if (!DB.settings) DB.settings = { perfilAtivo: "sergio", tema: "escuro", seeded: false, ativo: {} };
   if (!DB.settings.ativo) DB.settings.ativo = {};
   if (!DB.settings.estilo) DB.settings.estilo = "editorial";
+  if (DB.settings.claraSeeded == null) DB.settings.claraSeeded = false;
   if (!MULTI) DB.settings.perfilAtivo = "sergio";
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) {} }
@@ -230,7 +276,6 @@ function importarPrograma(programa, pf) {
 function seedIfNeeded() {
   if (DB.settings.seeded || DB.treinos.length) { DB.settings.seeded = true; return; }
   importarPrograma(programaBase(), "sergio");
-  if (MULTI) importarPrograma(programaBase(), "clara");
   DB.settings.seeded = true; save();
 }
 
@@ -437,6 +482,7 @@ function renderInicio() {
   const showWeek = est === "imersivo";
   view().innerHTML = `
     <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(cap(hojeLabel()))}</span><span class="h1">Olá, ${perfil(PF()).nome}</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
+    ${perfilSwitchHtml()}
     ${ativo ? `${heroHtml(est, ativo, d, done, goal)}
       ${lista.length > 1 ? `<div class="chips" style="margin-top:2px">${lista.map((t) => `<button class="chip ${t.id === ativo.id ? "on" : ""}" data-ativo="${t.id}">${esc(t.tab || t.nome)}</button>`).join("")}</div>` : ""}
     ` : `<div class="hero"><div class="hero-title">Monte seu primeiro treino</div><div class="hero-meta">Comece por um modelo pronto.</div><button class="btn primary big" id="vermod">Ver modelos</button></div>`}
@@ -446,6 +492,7 @@ function renderInicio() {
     <div class="sectlbl">Último treino</div>
     ${lastMs ? `<button class="card pad lastrow" id="verhist"><div class="col" style="flex:1;text-align:left"><div class="exname">${esc(cap(DIAS[new Date(lastMs).getDay()].split("-")[0]))}, ${fmtData(lastMs)}</div><div class="muted">${lastSets} série${lastSets === 1 ? "" : "s"} registrada${lastSets === 1 ? "" : "s"}</div></div><span class="chev">›</span></button>` : `<div class="card pad muted">Nada registrado ainda — seu primeiro treino aparece aqui.</div>`}
     <div style="height:8px"></div>`;
+  wirePerfil();
   document.getElementById("cfg").onclick = () => go({ name: "settings" });
   const tr = document.getElementById("treinar"); if (tr) tr.onclick = () => go({ name: "detail", id: ativo.id });
   const vm = document.getElementById("vermod"); if (vm) vm.onclick = () => setTab("modelos");
@@ -721,5 +768,7 @@ function applyTheme() {
 }
 
 /* ---- Boot ---- */
-load(); seedIfNeeded(); render();
+load(); seedIfNeeded();
+if (!DB.settings.claraSeeded) { importarPrograma(programaClara(), "clara"); DB.settings.claraSeeded = true; save(); }
+render();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

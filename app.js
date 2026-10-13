@@ -67,7 +67,98 @@ const IMG_PARES = {
 const norm = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
 const IMG = {};
 for (const k in IMG_PARES) IMG[norm(k)] = "img/exercicios/" + IMG_PARES[k];
-const imgFor = (nome) => IMG[norm(nome)] || null;
+// imgFor é definido depois do CATALOGO (usa foto do catálogo como fallback).
+
+/* ---------- Catálogo de exercícios (grupo · foto · como fazer) ---------- */
+const c = (nome, grupo, img, como) => ({ nome, grupo, img, como });
+const CATALOGO = [
+  // Peito
+  c("Supino reto com barra", "Peito", "supino_reto_com_barra.jpg", "Deitado no banco, pés firmes no chão. Desça a barra até o peito controlando e empurre até estender os cotovelos, sem travar."),
+  c("Supino inclinado com halteres", "Peito", "supino_inclinado_com_halteres.jpg", "Banco a 30–45°. Desça os halteres na linha do peito e empurre para cima aproximando-os de leve no topo."),
+  c("Supino com halteres (pegada neutra)", "Peito", "supino_com_halteres_pegada_neutra.jpg", "Palmas viradas uma para a outra. Desça os halteres rente ao tronco e empurre. A pegada neutra poupa o ombro."),
+  c("Supino na máquina", "Peito", "supino_na_maquina.jpg", "Ajuste o banco para as pegas ficarem na linha do peito. Empurre à frente sem arquear demais e volte controlando."),
+  c("Flexão de braço (controle escapular)", "Peito", "flexao_de_braco_controle_escapular.jpg", "Corpo reto, mãos sob os ombros. Desça o peito ao chão mantendo as escápulas estáveis e empurre de volta."),
+  // Costas
+  c("Remada curvada (barra)", "Costas", "remada_curvada_barra.jpg", "Tronco inclinado ~45°, coluna neutra. Puxe a barra ao abdômen levando os cotovelos para trás e desça controlando."),
+  c("Remada baixa (cabo)", "Costas", "remada_baixa_cabo.jpg", "Sentado, costas eretas. Puxe a pega ao abdômen juntando as escápulas; estenda os braços sem curvar as costas."),
+  c("Remada baixa na polia", "Costas", "remada_baixa_na_polia.jpg", "Sentado, costas eretas. Puxe a pega ao abdômen juntando as escápulas; estenda os braços sem curvar as costas."),
+  c("Remada unilateral com halter (serrote)", "Costas", "remada_unilateral_com_halter_serrote.jpg", "Apoie joelho e mão no banco. Puxe o halter ao quadril colando o cotovelo no corpo; desça alongando."),
+  c("Puxada alta (pulldown)", "Costas", "puxada_alta_pulldown.jpg", "Puxe a barra até a parte alta do peito levando os cotovelos para baixo e para trás; suba controlando."),
+  c("Barra fixa assistida / puxada neutra", "Costas", "barra_fixa_assistida_puxada_neutra.jpg", "Pegada neutra. Puxe o corpo até o queixo passar a barra (ou use a máquina assistida) e desça controlando."),
+  c("Barra fixa ou puxada (pegada neutra)", "Costas", "barra_fixa_ou_puxada_pegada_neutra.jpg", "Pegada neutra. Puxe o corpo até o queixo passar a barra (ou use a puxada) e desça controlando."),
+  // Ombro
+  c("Desenvolvimento com halteres", "Ombro", "desenvolvimento_com_halteres.jpg", "Sentado, core firme. Empurre os halteres acima da cabeça sem arquear a lombar e desça até a linha das orelhas."),
+  c("Desenvolvimento na máquina", "Ombro", "desenvolvimento_na_maquina.jpg", "Empurre as pegas acima da cabeça e volte controlando até a altura dos ombros."),
+  c("Desenvolvimento na barra landmine", "Ombro", "desenvolvimento_landmine.jpg", "Barra apoiada no canto. Empurre a ponta para cima e à frente, um braço de cada vez — trajetória segura para o ombro."),
+  c("Elevação lateral", "Ombro", "elevacao_lateral.jpg", "Cotovelos levemente flexionados. Suba os halteres até a linha dos ombros liderando pelos cotovelos; desça devagar."),
+  c("Face pull", "Ombro", "face_pull.jpg", "Polia alta com corda. Puxe em direção ao rosto abrindo os cotovelos e girando os punhos para fora. Saúde do ombro."),
+  c("Puxada para o rosto (face pull)", "Ombro", "puxada_para_o_rosto_face_pull.jpg", "Polia alta com corda. Puxe em direção ao rosto abrindo os cotovelos e girando os punhos para fora. Saúde do ombro."),
+  c("Rotação externa de ombro", "Ombro", "rotacao_externa_de_ombro.jpg", "Cotovelo colado ao corpo a 90°. Gire o antebraço para fora contra o elástico/cabo e volte devagar. Fortalece o manguito."),
+  // Braço
+  c("Rosca direta", "Braço", "rosca_direta.jpg", "Cotovelos fixos ao lado do corpo. Suba a barra/halteres contraindo o bíceps e desça controlando."),
+  c("Rosca martelo", "Braço", "rosca_martelo.jpg", "Pegada neutra (martelo). Suba os halteres sem balançar o corpo e desça devagar. Bíceps e antebraço."),
+  c("Tríceps na corda", "Braço", "triceps_na_corda.jpg", "Cotovelos colados ao corpo. Estenda a corda para baixo abrindo as pontas no fim e volte controlando."),
+  // Perna
+  c("Agachamento livre", "Perna", "agachamento_livre.jpg", "Barra nas costas, pés na largura dos ombros. Desça empurrando o quadril para trás até as coxas paralelas e suba."),
+  c("Agachamento goblet ou frontal", "Perna", "agachamento_goblet_ou_frontal.jpg", "Segure o peso à frente do peito. Agache com o tronco ereto até a profundidade confortável e suba."),
+  c("Agachamento búlgaro com halteres", "Perna", "agachamento_bulgaro_com_halteres.jpg", "Pé de trás apoiado no banco. Desça o joelho da frente até ~90° e suba pelo calcanhar da frente."),
+  c("Agachamento cossaco", "Perna", "agachamento_cossaco.jpg", "Pernas bem abertas. Desloque o peso para um lado flexionando esse joelho, a outra perna esticada. Mobilidade + força."),
+  c("Leg press", "Perna", "leg_press.jpg", "Pés na plataforma na largura dos ombros. Desça até ~90° sem soltar a lombar do apoio e empurre sem travar os joelhos."),
+  c("Cadeira extensora", "Perna", "cadeira_extensora.jpg", "Estenda os joelhos até quase esticar, segure 1s no topo e volte controlando."),
+  c("Afundo (lunge) andando", "Perna", "afundo_lunge_andando.jpg", "Dê um passo à frente descendo o joelho de trás até perto do chão; alterne as pernas avançando."),
+  c("Afundo com halteres", "Perna", "afundo_com_halteres.jpg", "Com halteres ao lado do corpo, dê um passo e desça o joelho de trás; suba e alterne."),
+  c("Afundo reverso com halteres", "Perna", "afundo_reverso_com_halteres.jpg", "Dê o passo para trás descendo o joelho; suba empurrando pelo calcanhar da frente. Mais amigável ao joelho."),
+  c("Step-up com impulso", "Perna", "step_up_com_impulso.jpg", "Suba no banco com uma perna e leve o joelho oposto para cima num impulso; desça controlando e alterne."),
+  // Posterior & glúteo
+  c("Terra romeno (ou barra hexagonal)", "Posterior & glúteo", "terra_romeno_ou_barra_hexagonal.jpg", "Joelhos semiflexionados. Empurre o quadril para trás descendo a barra rente às pernas; suba contraindo glúteos e posterior."),
+  c("Levantamento terra romeno", "Posterior & glúteo", "levantamento_terra_romeno.jpg", "Joelhos semiflexionados. Empurre o quadril para trás descendo a barra rente às pernas; suba contraindo glúteos e posterior."),
+  c("Terra romeno unilateral", "Posterior & glúteo", "terra_romeno_unilateral.jpg", "Numa perna só, incline o tronco à frente levando a outra perna para trás; volte contraindo o glúteo. Equilíbrio + posterior."),
+  c("Elevação pélvica (hip thrust)", "Posterior & glúteo", "elevacao_pelvica_hip_thrust.jpg", "Costas apoiadas no banco, barra no quadril. Suba o quadril até o tronco ficar reto e aperte o glúteo no topo."),
+  c("Mesa flexora", "Posterior & glúteo", "mesa_flexora.jpg", "Flexione os joelhos puxando o apoio em direção ao glúteo e volte controlando. Isola o posterior."),
+  c("Cadeira flexora (posterior)", "Posterior & glúteo", "cadeira_flexora_posterior.jpg", "Flexione os joelhos puxando o apoio em direção ao glúteo e volte controlando. Isola o posterior."),
+  // Panturrilha
+  c("Panturrilha em pé", "Panturrilha", "panturrilha_em_pe.jpg", "Em pé, suba na ponta dos pés o máximo possível e desça alongando o calcanhar abaixo do degrau."),
+  c("Panturrilha sentado", "Panturrilha", "panturrilha_sentado.jpg", "Sentado com peso sobre os joelhos, suba na ponta dos pés e desça alongando."),
+  c("Panturrilha unilateral", "Panturrilha", "panturrilha_unilateral.jpg", "Numa perna só, suba na ponta do pé e desça alongando; troque de lado."),
+  // Core
+  c("Prancha frontal", "Core", "prancha_frontal.jpg", "Apoie antebraços e pontas dos pés. Corpo reto, abdômen e glúteo contraídos. Não deixe o quadril cair."),
+  c("Prancha lateral", "Core", "prancha_lateral.jpg", "De lado, apoie um antebraço. Suba o quadril deixando o corpo reto e segure. Troque de lado."),
+  c("Press Pallof (anti-rotação)", "Core", "press_pallof_anti_rotacao.jpg", "De lado para a polia, empurre a pega à frente resistindo à rotação do tronco; volte devagar."),
+  c("Dead bug", "Core", "dead_bug.jpg", "Deitado, braços e joelhos para cima. Estenda braço e perna opostos sem arquear a lombar e volte; alterne."),
+  c("Bird-dog", "Core", null, "Em quatro apoios, estenda braço e perna opostos mantendo o tronco estável; volte e alterne. Core 'em X'."),
+  c("Meio levantamento turco", "Core", "meio_levantamento_turco.jpg", "Deitado com peso no braço estendido, levante até sentar apoiado na outra mão, sempre olhando o peso. Estabilidade de ombro."),
+  c("Remada renegado", "Core", "remada_renegado.jpg", "Na posição de flexão com halteres, reme um de cada vez sem girar o quadril. Anti-rotação."),
+  // Pliometria & potência
+  c("Skater lateral", "Pliometria & potência", "skater_lateral.jpg", "Salte lateralmente de uma perna para a outra, aterrissando suave e estável, como um patinador."),
+  c("Saltinhos no lugar (pogo)", "Pliometria & potência", "saltinhos_pogo.jpg", "Saltos baixos e rápidos no lugar, só com os tornozelos, joelhos quase retos, aterrissando leve."),
+  c("Arremesso de medicine ball", "Pliometria & potência", "arremesso_medicine_ball.jpg", "Arremesse a bola à frente/na parede com força a partir do peito e recupere. Potência."),
+  c("Arremesso de medicine ball (rotacional)", "Pliometria & potência", "arremesso_medicine_ball_rotacional.jpg", "De lado para a parede, gire o tronco e arremesse a bola; troque de lado. Potência rotacional."),
+  c("Elevação de joelhos (marcha)", "Pliometria & potência", "elevacao_joelhos_marcha.jpg", "Marche ou corra no lugar elevando os joelhos à altura do quadril, em ritmo constante. Cardio."),
+  // Lombar
+  c("Extensão lombar 45° (peso do corpo)", "Lombar", "extensao_lombar_45.jpg", "No banco 45°, desça o tronco e suba até alinhar com as pernas, sem hiperestender. Fortalece a lombar."),
+  // Pegada & estabilidade
+  c("Farmer's walk", "Pegada & estabilidade", "farmers_walk.jpg", "Caminhe segurando peso pesado nas duas mãos, tronco ereto e ombros firmes, pela distância marcada."),
+  // Cardio & mobilidade
+  c("Condicionamento (kettlebell swing)", "Cardio & mobilidade", "condicionamento_kettlebell_swing.jpg", "Impulsione o kettlebell à frente com a força do quadril (não dos braços) até a altura dos olhos; controle a descida."),
+  c("Cardio moderado (esteira/bike)", "Cardio & mobilidade", "cardio_bike.jpg", "Ritmo contínuo em que dá para conversar com certa dificuldade, pelo tempo indicado."),
+  c("Cardio intervalado (1min forte / 2min leve)", "Cardio & mobilidade", "cardio_bike.jpg", "Alterne 1 min forte com 2 min leve pelo tempo total. Acelera o gasto calórico."),
+  c("Finalizador: bike ou corda (intervalado)", "Cardio & mobilidade", "cardio_bike.jpg", "Blocos curtos fortes com descanso ativo, para fechar o treino elevando o condicionamento."),
+  c("Mobilidade (quadril/tornozelo/ombro)", "Cardio & mobilidade", null, "Sequência leve de mobilidade articular pelo tempo indicado, preparando quadril, tornozelo e ombro."),
+  c("Deslizar na parede / Y-T-W", "Cardio & mobilidade", null, "Costas na parede, deslize os braços para cima e para baixo mantendo contato; desenhe Y, T e W. Saúde da escápula."),
+];
+const ORDEM_GRUPOS = ["Peito", "Costas", "Ombro", "Braço", "Perna", "Posterior & glúteo", "Panturrilha", "Core", "Pliometria & potência", "Lombar", "Pegada & estabilidade", "Cardio & mobilidade"];
+
+// Fotos do catálogo + apelidos de nomes que variam entre as telas
+const CAT_IMG = {};
+const CAT_COMO = {};
+CATALOGO.forEach((e) => { if (e.img) CAT_IMG[norm(e.nome)] = "img/exercicios/" + e.img; CAT_COMO[norm(e.nome)] = e.como; });
+const ALIAS_IMG = { "agachamento búlgaro c/ halter": "agachamento_bulgaro_com_halteres.jpg", "dead bug (abdominal)": "dead_bug.jpg" };
+const ALIAS_COMO = { "agachamento búlgaro c/ halter": CAT_COMO[norm("Agachamento búlgaro com halteres")], "dead bug (abdominal)": CAT_COMO[norm("Dead bug")] };
+for (const k in ALIAS_IMG) CAT_IMG[norm(k)] = "img/exercicios/" + ALIAS_IMG[k];
+for (const k in ALIAS_COMO) CAT_COMO[norm(k)] = ALIAS_COMO[k];
+
+const imgFor = (nome) => IMG[norm(nome)] || CAT_IMG[norm(nome)] || null;
+const comoFor = (nome) => CAT_COMO[norm(nome)] || null;
 
 const ICON = {
   inicio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10h14V10"/></svg>',
@@ -375,7 +466,8 @@ function sugereSubir(e, ultima) {
 
 /* ---------- Router ---------- */
 let stack = [{ name: "inicio" }];
-const TABS = ["inicio", "programas", "historico"];
+const TABS = ["inicio", "programas", "exercicios", "historico"];
+let exBusca = "", exGrupo = "";
 const route = () => stack[stack.length - 1];
 function go(r) { stack.push(r); render(); }
 function back() { if (stack.length > 1) stack.pop(); render(); }
@@ -415,14 +507,14 @@ function render() {
   const isTab = TABS.includes(r.name);
   nav.style.display = isTab ? "flex" : "none";
   if (isTab) renderNav(r.name);
-  const fn = { inicio: renderInicio, programas: renderProgramas, programa: renderProgramaDias, historico: renderHistGeral, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
+  const fn = { inicio: renderInicio, programas: renderProgramas, programa: renderProgramaDias, exercicios: renderExercicios, historico: renderHistGeral, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
   fn(r);
   view().scrollTop = r._scroll || 0;
 }
 
 function renderNav(active) {
-  const label = { inicio: "Início", programas: "Programas", historico: "Histórico" };
-  const icon = { inicio: ICON.inicio, programas: ICON.modelos, historico: ICON.historico };
+  const label = { inicio: "Início", programas: "Programas", exercicios: "Exercícios", historico: "Histórico" };
+  const icon = { inicio: ICON.inicio, programas: ICON.modelos, exercicios: ICON.treinos, historico: ICON.historico };
   document.getElementById("bottomnav").innerHTML = TABS.map((t) =>
     `<button class="nav-btn ${t === active ? "active" : ""}" data-tab="${t}">${icon[t]}<span>${label[t]}</span></button>`
   ).join("");
@@ -761,6 +853,35 @@ function renderHistGeral() {
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">${d.exercicios.map((e) => `<div><div class="en" style="font-weight:600">${esc(e.nome)}</div><div class="es">${esc(resumoSets(e.sets))}</div></div>`).join("")}</div></div>`).join("") : `<div class="empty">Nenhum treino registrado ainda.</div>`}
     <div style="height:8px"></div>`;
   wirePerfil();
+}
+
+/* ---- Exercícios (catálogo) ---- */
+function catCard(e) {
+  return `<div class="card pad" style="display:flex;gap:12px;align-items:flex-start">
+    ${imgHtml(e.nome, "eximg")}
+    <div class="col" style="flex:1;min-width:0">
+      <div class="exname">${esc(e.nome)}</div>
+      <div class="exfoco">${esc(e.grupo)}</div>
+      <div class="exlast" style="margin-top:6px">${esc(e.como)}</div>
+    </div></div>`;
+}
+function renderExercicios() {
+  const q = norm(exBusca);
+  let lista = CATALOGO.filter((e) => !exGrupo || e.grupo === exGrupo);
+  if (q) lista = lista.filter((e) => norm(e.nome).includes(q) || norm(e.grupo).includes(q));
+  const grupos = ORDEM_GRUPOS.filter((g) => lista.some((e) => e.grupo === g));
+  view().innerHTML = `
+    <div class="hd"><div class="col"><span class="eyebrow">Catálogo</span><span class="h1">Exercícios</span></div></div>
+    <input class="field" id="exq" placeholder="Buscar exercício…" value="${esc(exBusca)}">
+    <div class="chips" style="margin:10px 0 4px">
+      <span class="chip ${!exGrupo ? "on" : ""}" data-g="">Todos</span>
+      ${ORDEM_GRUPOS.map((g) => `<span class="chip ${exGrupo === g ? "on" : ""}" data-g="${esc(g)}">${esc(g)}</span>`).join("")}
+    </div>
+    ${lista.length ? grupos.map((g) => `<div class="sectlbl">${esc(g)} · ${lista.filter((e) => e.grupo === g).length}</div>` + lista.filter((e) => e.grupo === g).map((e) => catCard(e)).join("")).join("") : `<div class="empty">Nenhum exercício encontrado.</div>`}
+    <div style="height:10px"></div>`;
+  const inp = document.getElementById("exq");
+  inp.oninput = () => { const pos = inp.selectionStart; exBusca = inp.value; renderExercicios(); const n = document.getElementById("exq"); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } };
+  view().querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { exGrupo = b.dataset.g; renderExercicios(); });
 }
 
 /* ---- Programas (biblioteca) ---- */

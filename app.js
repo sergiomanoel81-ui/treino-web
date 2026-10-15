@@ -628,6 +628,7 @@ function progCard(p) {
 
 function renderInicio() {
   const { prog, dia } = continuarAlvo();
+  const diasProg = prog ? treinosDoPrograma(prog.id) : [];
   const allr = DB.registros.filter((r) => r.perfil === PF());
   const lastMs = allr.length ? Math.max(...allr.map((r) => r.dataMs)) : null;
   const r7 = allr.filter((r) => r.dataMs >= Date.now() - 7 * 864e5);
@@ -650,6 +651,7 @@ function renderInicio() {
     <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(cap(hojeLabel()))}</span><span class="h1">Olá, ${perfil(PF()).nome}</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
     ${perfilSwitchHtml()}
     ${cont}
+    ${prog && diasProg.length > 1 ? `<div class="daytabs" style="margin-top:10px">${diasProg.map((d) => `<button class="dtab ${dia && d.id === dia.id ? "on" : ""}" data-godia="${d.id}">${esc(d.tab || d.nome)}</button>`).join("")}</div>` : ""}
     <div class="weekline">Esta semana · ${dias7} treino${dias7 === 1 ? "" : "s"}${lastMs ? ` · último em ${fmtData(lastMs)}` : ""}</div>
     <button class="card pad lastrow" id="verprog2"><div class="col" style="flex:1;text-align:left"><div class="exname">Meus programas</div><div class="muted">ver todos e trocar de ciclo</div></div><span class="chev">›</span></button>
     ${lastMs ? `<button class="card pad lastrow" id="verhist"><div class="col" style="flex:1;text-align:left"><div class="exname">Histórico</div><div class="muted">seus treinos registrados</div></div><span class="chev">›</span></button>` : ""}
@@ -657,6 +659,7 @@ function renderInicio() {
   wirePerfil();
   document.getElementById("cfg").onclick = () => go({ name: "settings" });
   const tr = document.getElementById("treinar"); if (tr) tr.onclick = () => go({ name: "programa", id: prog.id, dia: dia.id });
+  view().querySelectorAll("[data-godia]").forEach((b) => b.onclick = () => go({ name: "programa", id: prog.id, dia: b.dataset.godia }));
   const vp = document.getElementById("verprog"); if (vp) vp.onclick = () => setTab("programas");
   const vp2 = document.getElementById("verprog2"); if (vp2) vp2.onclick = () => setTab("programas");
   const vh = document.getElementById("verhist"); if (vh) vh.onclick = () => setTab("historico");

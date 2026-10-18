@@ -261,6 +261,8 @@ function programaV2() {
         ex("Remada baixa na polia", 3, 10, 12, null, "Massa"),
         ex("Puxada para o rosto (face pull)", 3, 15, 15, null, "Saúde do ombro"),
         ex("Rotação externa de ombro", 3, null, null, "15 / lado", "Manguito"),
+        ex("Rosca direta", 3, 10, 12, null, "Braço"),
+        ex("Tríceps na corda", 3, 10, 12, null, "Braço"),
       ]},
       { nome: "Core + condicionamento", tab: "D3", aquecimento: [
         { titulo: "Flow de mobilidade", desc: "Sequência fluida de mobilidade de quadril e ombro — ~10 min." },
@@ -277,7 +279,7 @@ function programaV2() {
         ex("Levantamento terra romeno", 4, 6, 6, null, "Posterior"),
         ex("Elevação pélvica (hip thrust)", 3, 10, 12, null, "Glúteo"),
         ex("Afundo reverso com halteres", 3, null, null, "10 / perna", "Unilateral"),
-        ex("Mesa flexora", 3, 12, 12, null, "Posterior"),
+        ex("Panturrilha em pé", 3, 12, 15, null, "Resistência"),
         ex("Prancha lateral", 3, null, null, "30s / lado", "Core"),
       ]},
       { nome: "Superior B (vertical) + escápula", tab: "D5", aquecimento: [
@@ -288,51 +290,72 @@ function programaV2() {
         ex("Flexão de braço (controle escapular)", 3, 10, 12, null, "Peito/serrátil"),
         ex("Elevação lateral", 2, 15, 15, null, "Deltoide"),
         ex("Deslizar na parede / Y-T-W", 3, 12, 12, null, "Escápula"),
+        ex("Rosca martelo", 3, 10, 12, null, "Braço"),
+        ex("Tríceps francês", 3, 10, 12, null, "Braço"),
       ]},
     ],
   };
 }
 function programaClara() {
-  const mob = { titulo: "Mobilidade", desc: "90/90 de quadril, agachamento profundo apoiado, gato-camelo, rotação torácica e tornozelo — ~8 min." };
-  const aq = { titulo: "Aquecimento", desc: "5 min de bike/esteira leve + mobilidade de quadril e ombro." };
+  const mobOmbro = { titulo: "Mobilidade de ombro", desc: "Rotação torácica, band pull-apart e círculos de ombro — ~8 min." };
+  const mobQuadril = { titulo: "Mobilidade de quadril", desc: "90/90, agachamento profundo apoiado e mobilidade de tornozelo — ~8 min." };
   return {
-    nome: "Clara — Emagrecimento & Lombar (5 dias)",
+    nome: "Clara — Superior / Inferior (gasto alto)",
     treinos: [
-      { nome: "Força A (full body)", tab: "D1", aquecimento: [aq], exercicios: [
-        ex("Agachamento búlgaro com halteres", 3, null, null, "10 / perna", "Unilateral"),
-        ex("Elevação pélvica (hip thrust)", 3, 12, 12, null, "Glúteo"),
-        ex("Supino na máquina", 3, 12, 12, null, "Peito"),
-        ex("Puxada alta (pulldown)", 3, 12, 12, null, "Costas"),
-        ex("Dead bug", 3, null, null, "10 / lado", "Core"),
+      { nome: "Superior A", tab: "SEG", aquecimento: [mobOmbro], exercicios: [
+        ex("Supino com halteres (pegada neutra)", 3, 8, 10, null, "Peito"),
+        ex("Desenvolvimento com halteres", 3, 10, 10, null, "Ombro"),
+        ex("Remada unilateral com halter (serrote)", 3, null, null, "10 / lado", "Unilateral"),
+        ex("Elevação lateral", 3, 15, 15, null, "Ombro"),
+        ex("Tríceps na corda", 3, 12, 12, null, "Braço"),
+        ex("Prancha frontal", 3, null, null, "30s", "Core"),
+        ex("Cardio moderado (esteira/bike)", 1, null, null, "12-15 min", "Cardio"),
       ]},
-      { nome: "Funcional (mobilidade + pliometria + cardio)", tab: "D2", aquecimento: [mob], exercicios: [
-        ex("Step-up com impulso", 3, null, null, "8 / perna", "Pliometria"),
-        ex("Skater lateral", 3, null, null, "10 / lado", "Pliometria"),
-        ex("Saltinhos no lugar (pogo)", 3, null, null, "20s", "Pliometria"),
-        ex("Arremesso de medicine ball", 3, 8, 8, null, "Potência"),
-        ex("Cardio intervalado (1min forte / 2min leve)", 1, null, null, "12-15 min", "Cardio"),
-      ]},
-      { nome: "Força B (full body)", tab: "D3", aquecimento: [aq], exercicios: [
-        ex("Afundo (lunge) andando", 3, null, null, "10 / perna", "Unilateral"),
-        ex("Mesa flexora", 3, 12, 12, null, "Posterior"),
-        ex("Desenvolvimento na máquina", 3, 12, 12, null, "Ombro"),
-        ex("Remada baixa na polia", 3, 12, 12, null, "Costas"),
-        ex("Prancha lateral", 3, null, null, "20-30s / lado", "Core"),
-      ]},
-      { nome: "Funcional (mobilidade + pliometria + cardio)", tab: "D4", aquecimento: [mob], exercicios: [
-        ex("Step-up com impulso", 3, null, null, "8 / perna", "Pliometria"),
-        ex("Skater lateral", 3, null, null, "10 / lado", "Pliometria"),
-        ex("Elevação de joelhos (marcha)", 3, null, null, "30s", "Cardio"),
-        ex("Arremesso de medicine ball (rotacional)", 3, null, null, "8 / lado", "Potência"),
-        ex("Cardio intervalado (1min forte / 2min leve)", 1, null, null, "12-15 min", "Cardio"),
-      ]},
-      { nome: "Força C (full body) + core", tab: "D5", aquecimento: [aq], exercicios: [
+      { nome: "Inferior A", tab: "TER", aquecimento: [mobQuadril], exercicios: [
+        ex("Agachamento goblet ou frontal", 4, 8, 10, null, "Pernas"),
         ex("Leg press", 3, 12, 12, null, "Pernas"),
-        ex("Extensão lombar 45° (peso do corpo)", 3, 12, 12, null, "Lombar"),
-        ex("Supino inclinado com halteres", 3, 12, 12, null, "Peito"),
-        ex("Barra fixa ou puxada (pegada neutra)", 3, 12, 12, null, "Costas"),
-        ex("Press Pallof (anti-rotação)", 3, null, null, "10 / lado", "Core"),
+        ex("Afundo reverso com halteres", 3, null, null, "10 / perna", "Unilateral"),
+        ex("Cadeira extensora", 3, 15, 15, null, "Resistência"),
+        ex("Panturrilha em pé", 3, 15, 15, null, "Resistência"),
         ex("Bird-dog", 3, null, null, "8 / lado", "Core"),
+        ex("Cardio moderado (esteira/bike)", 1, null, null, "12-15 min", "Cardio"),
+      ]},
+      { nome: "Superior B + Spinning", tab: "QUA", aquecimento: [mobOmbro], exercicios: [
+        ex("Puxada alta (pulldown)", 3, 10, 10, null, "Costas"),
+        ex("Remada baixa na polia", 3, 10, 12, null, "Costas"),
+        ex("Supino inclinado com halteres", 3, 10, 10, null, "Peito"),
+        ex("Puxada para o rosto (face pull)", 3, 15, 15, null, "Saúde do ombro"),
+        ex("Rosca direta", 3, 12, 12, null, "Braço"),
+        ex("Prancha lateral", 3, null, null, "20-30s / lado", "Core"),
+        ex("Spinning (aula)", 1, null, null, "45 min", "Cardio"),
+      ]},
+      { nome: "Inferior B", tab: "QUI", aquecimento: [mobQuadril], exercicios: [
+        ex("Elevação pélvica (hip thrust)", 4, 10, 12, null, "Glúteo"),
+        ex("Levantamento terra romeno", 3, 8, 10, null, "Posterior"),
+        ex("Agachamento búlgaro com halteres", 3, null, null, "10 / perna", "Unilateral"),
+        ex("Mesa flexora", 3, 12, 12, null, "Posterior"),
+        ex("Cadeira abdutora", 3, 15, 15, null, "Glúteo"),
+        ex("Dead bug", 3, null, null, "10 / lado", "Core"),
+        ex("Cardio moderado (esteira/bike)", 1, null, null, "12-15 min", "Cardio"),
+      ]},
+      { nome: "Superior C + Spinning", tab: "SEX", aquecimento: [mobOmbro], exercicios: [
+        ex("Barra fixa ou puxada (pegada neutra)", 3, 10, 10, null, "Costas"),
+        ex("Supino na máquina", 3, 12, 12, null, "Peito"),
+        ex("Desenvolvimento com halteres", 3, null, null, "10 / lado", "Unilateral"),
+        ex("Crucifixo (voador)", 3, 15, 15, null, "Peito"),
+        ex("Rosca martelo", 3, 12, 12, null, "Braço"),
+        ex("Farmer's walk", 3, null, null, "20m / lado", "Core"),
+        ex("Spinning (aula)", 1, null, null, "45 min", "Cardio"),
+      ]},
+      { nome: "Inferior C", tab: "SÁB", aquecimento: [mobQuadril], exercicios: [
+        ex("Terra romeno unilateral", 3, null, null, "8 / perna", "Unilateral"),
+        ex("Step-up (controlado)", 3, null, null, "10 / perna", "Unilateral"),
+        ex("Agachamento cossaco", 3, null, null, "8 / lado", "Mobilidade + força"),
+        ex("Coice na polia (glúteo)", 3, null, null, "12 / lado", "Glúteo"),
+        ex("Panturrilha unilateral", 3, null, null, "12 / lado", "Resistência"),
+        ex("Extensão lombar 45° (peso do corpo)", 3, 12, 12, null, "Lombar"),
+        ex("Press Pallof (anti-rotação)", 3, null, null, "10 / lado", "Core"),
+        ex("Cardio moderado (esteira/bike)", 1, null, null, "12-15 min", "Cardio"),
       ]},
     ],
   };

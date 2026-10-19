@@ -360,7 +360,7 @@ function programaClara() {
     ],
   };
 }
-const TEMPLATES = [programaClara(), programaV2(), programaBase()];
+const TEMPLATES = [programaV2(), programaClara()];
 
 /* ---------- Estado / storage ---------- */
 const KEY = "treino-web";
@@ -416,10 +416,14 @@ function criarProgramaVazio(pf, nome) {
   return pid;
 }
 function seedIfNeeded() {
-  if (!DB.settings.seeded && !DB.treinos.length) {
-    importarPrograma(programaBase(), "sergio");
-  }
+  // Sem seed automático: o usuário escolhe um modelo na aba Modelos.
   DB.settings.seeded = true; save();
+}
+/** Apaga todos os programas, treinos e registros dos dois perfis (opt-in nas Config). */
+function zerarDados() {
+  DB.programas = []; DB.treinos = []; DB.registros = [];
+  DB.settings.ultimo = {}; DB.settings.seeded = true; DB.settings.claraSeeded = true;
+  save();
 }
 
 /* ---------- Helpers de domínio ---------- */
@@ -489,7 +493,7 @@ function sugereSubir(e, ultima) {
 
 /* ---------- Router ---------- */
 let stack = [{ name: "inicio" }];
-const TABS = ["inicio", "programas", "exercicios", "historico"];
+const TABS = ["inicio", "modelos", "exercicios", "historico"];
 let exBusca = "", exGrupo = "";
 const route = () => stack[stack.length - 1];
 function go(r) { stack.push(r); render(); }
@@ -530,14 +534,14 @@ function render() {
   const isTab = TABS.includes(r.name);
   nav.style.display = isTab ? "flex" : "none";
   if (isTab) renderNav(r.name);
-  const fn = { inicio: renderInicio, programas: renderProgramas, programa: renderProgramaDias, exercicios: renderExercicios, historico: renderHistGeral, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
+  const fn = { inicio: renderInicio, modelos: renderModelos, programa: renderProgramaDias, exercicios: renderExercicios, historico: renderHistGeral, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
   fn(r);
   view().scrollTop = r._scroll || 0;
 }
 
 function renderNav(active) {
-  const label = { inicio: "Início", programas: "Programas", exercicios: "Exercícios", historico: "Histórico" };
-  const icon = { inicio: ICON.inicio, programas: ICON.modelos, exercicios: ICON.treinos, historico: ICON.historico };
+  const label = { inicio: "Início", modelos: "Modelos", exercicios: "Exercícios", historico: "Histórico" };
+  const icon = { inicio: ICON.inicio, modelos: ICON.modelos, exercicios: ICON.treinos, historico: ICON.historico };
   document.getElementById("bottomnav").innerHTML = TABS.map((t) =>
     `<button class="nav-btn ${t === active ? "active" : ""}" data-tab="${t}">${icon[t]}<span>${label[t]}</span></button>`
   ).join("");
@@ -650,42 +654,71 @@ function progCard(p) {
 }
 
 function renderInicio() {
-  const { prog, dia } = continuarAlvo();
-  const diasProg = prog ? treinosDoPrograma(prog.id) : [];
-  const allr = DB.registros.filter((r) => r.perfil === PF());
-  const lastMs = allr.length ? Math.max(...allr.map((r) => r.dataMs)) : null;
-  const r7 = allr.filter((r) => r.dataMs >= Date.now() - 7 * 864e5);
-  const dias7 = new Set(r7.map((r) => epochDay(r.dataMs))).size;
-  let cont;
-  if (prog && dia) {
-    const n = dia.exercicios.length, mins = estMin(dia);
-    const img = dia.exercicios[0] ? imgFor(dia.exercicios[0].nome) : null;
-    const bg = img ? ` style="background-image:linear-gradient(170deg,rgba(0,0,0,.30),rgba(0,0,0,.82)),url('${img}')"` : "";
-    cont = `<div class="continuar${img ? " hasimg" : ""}"${bg}>
-      <div class="cont-eyebrow">Continuar</div>
-      <div class="cont-title">${esc(dia.nome)}</div>
-      <div class="cont-meta">${esc(prog.nome)} · ${n} exercício${n === 1 ? "" : "s"} · ~${mins} min</div>
-      <button class="btn primary big" id="treinar">Treinar</button>
-    </div>`;
-  } else {
-    cont = `<div class="card pad empty">Você ainda não tem um programa.<br><button class="btn primary" id="verprog" style="margin-top:12px">Escolher um programa</button></div>`;
+  const u = getUltimo();
+  let prog = u ? programaPorId(u.programaId) : null;
+  if (prog && prog.perfil !== PF()) prog = null;
+  if (!prog) prog = programasDoPerfil()[0] || null;
+  // Sem programa ainda → manda escolher um modelo
+  if (!prog) {
+    view().innerHTML = `
+      <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(cap(hojeLabel()))}</span><span class="h1">Olá, ${perfil(PF()).nome}</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
+      ${perfilSwitchHtml()}
+      <div class="card pad empty">Escolha um modelo pra começar.<br><button class="btn primary" id="vermod" style="margin-top:12px">Ver modelos</button></div>`;
+    wirePerfil();
+    document.getElementById("cfg").onclick = () => go({ name: "settings" });
+    document.getElementById("vermod").onclick = () => setTab("modelos");
+    return;
   }
+  const dias = treinosDoPrograma(prog.id);
+  const diaId = (u && dias.some((d) => d.id === u.treinoId)) ? u.treinoId : (dias[0] && dias[0].id);
+  const dia = dias.find((d) => d.id === diaId) || null;
+  if (dia) setUltimo(prog.id, dia.id);
+  const wu = dia ? (dia.aquecimento || []) : [];
   view().innerHTML = `
-    <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(cap(hojeLabel()))}</span><span class="h1">Olá, ${perfil(PF()).nome}</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
+    <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(prog.nome)}</span><span class="h1">${esc(dia ? dia.nome : "Treino")}</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
     ${perfilSwitchHtml()}
-    ${cont}
-    ${prog && diasProg.length > 1 ? `<div class="daytabs" style="margin-top:10px">${diasProg.map((d) => `<button class="dtab ${dia && d.id === dia.id ? "on" : ""}" data-godia="${d.id}">${esc(d.tab || d.nome)}</button>`).join("")}</div>` : ""}
-    <div class="weekline">Esta semana · ${dias7} treino${dias7 === 1 ? "" : "s"}${lastMs ? ` · último em ${fmtData(lastMs)}` : ""}</div>
-    <button class="card pad lastrow" id="verprog2"><div class="col" style="flex:1;text-align:left"><div class="exname">Meus programas</div><div class="muted">ver todos e trocar de ciclo</div></div><span class="chev">›</span></button>
-    ${lastMs ? `<button class="card pad lastrow" id="verhist"><div class="col" style="flex:1;text-align:left"><div class="exname">Histórico</div><div class="muted">seus treinos registrados</div></div><span class="chev">›</span></button>` : ""}
-    <div style="height:8px"></div>`;
+    ${dias.length > 1 ? `<div class="daytabs">${dias.map((d) => `<button class="dtab ${dia && d.id === dia.id ? "on" : ""}" data-godia="${d.id}">${esc(d.tab || d.nome)}</button>`).join("")}</div>` : ""}
+    ${wu.length ? `<div class="card"><div class="wu-head" id="wuh"><span>🔥 Aquecimento</span><span id="wuchev">▸</span></div><div class="wu-body" id="wub" style="display:none">${wu.map((w) => `<div><div class="wu-t">${esc(w.titulo)}</div>${w.desc ? `<div class="wu-d">${esc(w.desc)}</div>` : ""}</div>`).join("")}</div></div>` : ""}
+    ${dia && dia.exercicios.length ? dia.exercicios.map((e) => exCard(e)).join("") : `<div class="empty">Treino sem exercícios.</div>`}
+    ${dia ? `<button class="btn wa" id="share">Compartilhar no WhatsApp</button>` : ""}
+    <div style="height:10px"></div>`;
   wirePerfil();
   document.getElementById("cfg").onclick = () => go({ name: "settings" });
-  const tr = document.getElementById("treinar"); if (tr) tr.onclick = () => go({ name: "programa", id: prog.id, dia: dia.id });
-  view().querySelectorAll("[data-godia]").forEach((b) => b.onclick = () => go({ name: "programa", id: prog.id, dia: b.dataset.godia }));
-  const vp = document.getElementById("verprog"); if (vp) vp.onclick = () => setTab("programas");
-  const vp2 = document.getElementById("verprog2"); if (vp2) vp2.onclick = () => setTab("programas");
-  const vh = document.getElementById("verhist"); if (vh) vh.onclick = () => setTab("historico");
+  view().querySelectorAll("[data-godia]").forEach((b) => b.onclick = () => { setUltimo(prog.id, b.dataset.godia); render(); });
+  const wuh = document.getElementById("wuh");
+  if (wuh) wuh.onclick = () => { const b = document.getElementById("wub"); const open = b.style.display !== "none"; b.style.display = open ? "none" : "flex"; document.getElementById("wuchev").textContent = open ? "▸" : "▾"; };
+  if (dia) {
+    view().querySelectorAll("[data-reg]").forEach((c) => c.onclick = (ev) => { if (ev.target.closest("[data-hist]")) return; modalRegistrar(dia.exercicios.find((e) => e.id === c.dataset.reg)); });
+    view().querySelectorAll("[data-hist]").forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); go({ name: "histex", exId: b.dataset.hist, nome: b.dataset.nome }); });
+    const sh = document.getElementById("share"); if (sh) sh.onclick = () => compartilharDia(prog, dia);
+  }
+}
+
+/* ---- Modelos (só os 2 prontos) ---- */
+function renderModelos() {
+  view().innerHTML = `
+    <div class="hd"><div class="col"><span class="eyebrow">Treinos</span><span class="h1">Modelos</span></div></div>
+    ${perfilSwitchHtml()}
+    <div class="sectlbl">Escolha e comece</div>
+    ${TEMPLATES.map((p, i) => `<div class="card pad"><div class="exname" style="font-weight:700">${esc(p.nome)}</div><div class="muted">${p.treinos.length} dias</div>
+      <div class="chips" style="margin:10px 0">${p.treinos.map((t) => `<span class="chip">${esc(t.tab || t.nome)}</span>`).join("")}</div>
+      <button class="btn primary" data-use="${i}" style="width:100%">Usar este modelo</button></div>`).join("")}
+    <div style="height:8px"></div>`;
+  wirePerfil();
+  view().querySelectorAll("[data-use]").forEach((b) => b.onclick = () => usarModelo(TEMPLATES[+b.dataset.use]));
+}
+function usarModelo(modelo) {
+  let p = programasDoPerfil().find((x) => x.nome === modelo.nome);
+  const pid = p ? p.id : importarPrograma(modelo, PF(), true);
+  const dias = treinosDoPrograma(pid);
+  setUltimo(pid, dias[0] ? dias[0].id : null);
+  save(); toast("Treino pronto"); setTab("inicio");
+}
+function compartilharDia(prog, dia) {
+  const linhas = dia.exercicios.map((e) => "• " + e.nome + " — " + setsLabel(e)).join("\n");
+  const txt = prog.nome + "\n" + dia.nome + "\n\n" + linhas;
+  if (navigator.share) navigator.share({ text: txt }).catch(() => {});
+  else window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
 }
 
 /* ---- Programa numa tela só: abas de dia + exercícios ---- */
@@ -725,13 +758,12 @@ function exCard(e) {
   const regs = registrosDe(e.id); const sess = sessoes(regs); const ult = sess[0];
   const pr = recorde(regs); const up = sugereSubir(e, ult);
   const sub = [e.foco ? e.foco.toUpperCase() : "", descLabel(e.descansoSeg) ? "descanso " + descLabel(e.descansoSeg) : ""].filter(Boolean).join(" · ");
-  return `<div class="card pad">
-    <div class="exhead">${imgHtml(e.nome, "eximg")}<div class="col" style="flex:1">
-      <div class="row" style="align-items:flex-start"><div class="exname" style="flex:1">${esc(e.nome)}</div><div class="exsets">${esc(setsLabel(e))}</div></div>
-      ${sub ? `<div class="exfoco">${esc(sub)}</div>` : ""}</div></div>
+  return `<div class="card pad exitem" data-reg="${e.id}">
+    <div class="row" style="align-items:flex-start"><div class="exname" style="flex:1">${esc(e.nome)}</div><div class="exsets">${esc(setsLabel(e))}</div></div>
+    ${sub ? `<div class="exfoco">${esc(sub)}</div>` : ""}
     ${ult ? `<div class="exlast">Última (${fmtDiaMes(ult.dataMs)}): ${esc(resumoSets(ult.sets))}</div>${pr > 0 ? `<div class="muted">Recorde: ${fmtCarga(pr)} kg</div>` : ""}` : `<div class="exlast muted">Sem registros ainda</div>`}
     ${up ? `<div class="pill up">↗ Bateu o topo da faixa — pode subir a carga</div>` : ""}
-    <div class="btnrow"><button class="btn ghost" data-reg="${e.id}">Registrar</button><button class="btn text" data-hist="${e.id}" data-nome="${esc(e.nome)}">Histórico</button></div>
+    <div class="row" style="margin-top:8px;align-items:center"><span class="muted" style="flex:1;font-size:12px">Toque pra registrar →</span><button class="btn text" data-hist="${e.id}" data-nome="${esc(e.nome)}">Histórico</button></div>
   </div>`;
 }
 
@@ -749,9 +781,7 @@ function modalRegistrar(e) {
   }
   let rpe = "";
   function body() {
-    return `${imgBig(e.nome)}
-      <div style="height:10px"></div>
-      <div class="muted">Alvo: ${esc(setsLabel(e))}</div>
+    return `<div class="muted">Alvo: ${esc(setsLabel(e))}</div>
       <div class="setcols" style="margin-top:8px"><div style="width:30px"></div><div class="c">Carga (kg)</div><div class="c">Reps</div><div style="width:40px"></div></div>
       <div id="rows">${rows.map((r, i) => setRowHtml(r, i)).join("")}</div>
       <div class="row" style="margin-top:8px"><button class="mini" id="less">−</button><button class="mini" id="more">+</button><div class="spacer"></div>
@@ -883,13 +913,11 @@ function renderHistGeral() {
 
 /* ---- Exercícios (catálogo) ---- */
 function catCard(e) {
-  return `<div class="card pad" style="display:flex;gap:12px;align-items:flex-start">
-    ${imgHtml(e.nome, "eximg")}
-    <div class="col" style="flex:1;min-width:0">
-      <div class="exname">${esc(e.nome)}</div>
-      <div class="exfoco">${esc(e.grupo)}</div>
-      <div class="exlast" style="margin-top:6px">${esc(e.como)}</div>
-    </div></div>`;
+  return `<div class="card pad">
+    <div class="exname">${esc(e.nome)}</div>
+    <div class="exfoco">${esc(e.grupo)}</div>
+    <div class="exlast" style="margin-top:6px">${esc(e.como)}</div>
+  </div>`;
 }
 function renderExercicios() {
   const q = norm(exBusca);
@@ -947,8 +975,12 @@ function renderSettings() {
     <button class="btn ghost" id="exp" style="width:100%;margin-bottom:8px">↓ Exportar treinos</button>
     <button class="btn ghost" id="imp" style="width:100%">↑ Importar treinos</button>
     <input type="file" id="fileimp" accept="application/json,.json" style="display:none">
+    <div class="sectlbl">Dados</div>
+    <button class="btn ghost" id="zerar" style="width:100%;color:var(--red)">Zerar dados (começar do zero)</button>
+    <div class="muted" style="margin-top:6px">Apaga programas e histórico dos dois perfis. Não dá pra desfazer.</div>
     <div class="footnote">Treino · app local (PWA). A sincronização entre aparelhos chega com a API (Etapa 2).</div>`;
   document.getElementById("bk").onclick = back;
+  document.getElementById("zerar").onclick = () => confirmar("Zerar todos os dados?", "Apaga programas e histórico dos dois perfis. Não dá pra desfazer.", () => { zerarDados(); toast("Dados apagados"); setTab("inicio"); });
   view().querySelectorAll("[data-estilo]").forEach((el) => el.onclick = () => { DB.settings.estilo = el.dataset.estilo; save(); render(); });
   document.getElementById("exp").onclick = () => {
     const prog = { nome: "Programa", treinos: treinosDoPerfil().map((t) => ({ nome: t.nome, tab: t.tab, aquecimento: t.aquecimento, exercicios: t.exercicios.map((e) => ({ nome: e.nome, series: e.series, repMin: e.repMin, repMax: e.repMax, repTexto: e.repTexto, foco: e.foco, descansoSeg: e.descansoSeg })) })) };
@@ -989,6 +1021,5 @@ function applyTheme() {
 
 /* ---- Boot ---- */
 load(); seedIfNeeded();
-if (!DB.settings.claraSeeded) { importarPrograma(programaClara(), "clara"); DB.settings.claraSeeded = true; save(); }
 render();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

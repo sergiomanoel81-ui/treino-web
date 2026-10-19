@@ -253,3 +253,11 @@ body[data-estilo="brutalista"] .continuar { border: 2.5px solid #111; box-shadow
 body[data-estilo="brutalista"] .cont-title { text-transform: uppercase; }
 body[data-estilo="brutalista"] .dtab { border: 2.5px solid #111; background: #fff; color: #111; box-shadow: 2px 2px 0 #111; }
 body[data-estilo="brutalista"] .dtab.on { background: var(--accent); color: #fff; }
+
+/* Botão compartilhar no WhatsApp */
+.btn.wa { width: 100%; margin-top: 10px; background: #128C7E; color: #fff; font-weight: 700; }
+.btn.wa:active { background: #0E6B60; }
+body[data-estilo="brutalista"] .btn.wa { border: 2.5px solid #111; box-shadow: 3px 3px 0 #111; }
+/* Exercício tocável (toque abre o registrar) */
+.exitem { cursor: pointer; }
+.exitem:active { background: var(--s2); }

@@ -416,13 +416,17 @@ function criarProgramaVazio(pf, nome) {
   return pid;
 }
 function seedIfNeeded() {
-  // Sem seed automático: o usuário escolhe um modelo na aba Modelos.
+  // Cada perfil já abre com o seu treino carregado.
+  if (!programasDoPerfil("sergio").length) importarPrograma(programaV2(), "sergio", true);
+  if (!programasDoPerfil("clara").length) importarPrograma(programaClara(), "clara", true);
   DB.settings.seeded = true; save();
 }
-/** Apaga todos os programas, treinos e registros dos dois perfis (opt-in nas Config). */
+/** Zera histórico e volta os dois perfis aos treinos limpos (opt-in nas Config). */
 function zerarDados() {
-  DB.programas = []; DB.treinos = []; DB.registros = [];
-  DB.settings.ultimo = {}; DB.settings.seeded = true; DB.settings.claraSeeded = true;
+  DB.programas = []; DB.treinos = []; DB.registros = []; DB.settings.ultimo = {};
+  importarPrograma(programaV2(), "sergio", true);
+  importarPrograma(programaClara(), "clara", true);
+  DB.settings.seeded = true; DB.settings.claraSeeded = true;
   save();
 }
 
@@ -493,7 +497,7 @@ function sugereSubir(e, ultima) {
 
 /* ---------- Router ---------- */
 let stack = [{ name: "inicio" }];
-const TABS = ["inicio", "modelos", "exercicios", "historico"];
+const TABS = ["inicio", "exercicios", "historico"];
 let exBusca = "", exGrupo = "";
 const route = () => stack[stack.length - 1];
 function go(r) { stack.push(r); render(); }
@@ -534,14 +538,14 @@ function render() {
   const isTab = TABS.includes(r.name);
   nav.style.display = isTab ? "flex" : "none";
   if (isTab) renderNav(r.name);
-  const fn = { inicio: renderInicio, modelos: renderModelos, programa: renderProgramaDias, exercicios: renderExercicios, historico: renderHistGeral, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
+  const fn = { inicio: renderInicio, programa: renderProgramaDias, exercicios: renderExercicios, historico: renderHistGeral, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
   fn(r);
   view().scrollTop = r._scroll || 0;
 }
 
 function renderNav(active) {
-  const label = { inicio: "Início", modelos: "Modelos", exercicios: "Exercícios", historico: "Histórico" };
-  const icon = { inicio: ICON.inicio, modelos: ICON.modelos, exercicios: ICON.treinos, historico: ICON.historico };
+  const label = { inicio: "Início", exercicios: "Exercícios", historico: "Histórico" };
+  const icon = { inicio: ICON.inicio, exercicios: ICON.treinos, historico: ICON.historico };
   document.getElementById("bottomnav").innerHTML = TABS.map((t) =>
     `<button class="nav-btn ${t === active ? "active" : ""}" data-tab="${t}">${icon[t]}<span>${label[t]}</span></button>`
   ).join("");
@@ -663,10 +667,10 @@ function renderInicio() {
     view().innerHTML = `
       <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(cap(hojeLabel()))}</span><span class="h1">Olá, ${perfil(PF()).nome}</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
       ${perfilSwitchHtml()}
-      <div class="card pad empty">Escolha um modelo pra começar.<br><button class="btn primary" id="vermod" style="margin-top:12px">Ver modelos</button></div>`;
+      <div class="card pad empty">Sem treino carregado.<br><button class="btn primary" id="vermod" style="margin-top:12px">Carregar meu treino</button></div>`;
     wirePerfil();
     document.getElementById("cfg").onclick = () => go({ name: "settings" });
-    document.getElementById("vermod").onclick = () => setTab("modelos");
+    document.getElementById("vermod").onclick = () => { seedIfNeeded(); render(); };
     return;
   }
   const dias = treinosDoPrograma(prog.id);

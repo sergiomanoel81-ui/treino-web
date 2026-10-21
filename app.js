@@ -6,7 +6,8 @@ const PERFIS = [
   { id: "clara", nome: "Clara", accent: "#3DDC97" },
 ];
 const perfil = (id) => PERFIS.find((p) => p.id === id) || PERFIS[0];
-const MULTI = true; // Sérgio + Clara
+const MULTI = false; // sem perfis: modelos ativáveis (1 ou 2)
+const MAX_ATIVOS = 2;
 
 const ESTILOS = {
   editorial: { nome: "Editorial", vibe: "tipografia grande, minimal", accent: "#4F8CFF", accentInk: "#06101A", bg: "#0C0D10" },
@@ -377,8 +378,16 @@ function load() {
   if (DB.settings.claraSeeded == null) DB.settings.claraSeeded = false;
   if (!DB.settings.ultimo) DB.settings.ultimo = {};
   if (!DB.settings.perfilAtivo) DB.settings.perfilAtivo = "sergio";
-  if (!MULTI) DB.settings.perfilAtivo = "sergio";
   migrarProgramas();
+  migrarUsuarioUnico();
+}
+/** App virou usuário único: tudo passa a pertencer ao perfil "u". */
+function migrarUsuarioUnico() {
+  let mud = false;
+  DB.programas.forEach((p) => { if (p.perfil !== "u") { p.perfil = "u"; mud = true; } });
+  DB.treinos.forEach((t) => { if (t.perfil !== "u") { t.perfil = "u"; mud = true; } });
+  DB.registros.forEach((r) => { if (r.perfil !== "u") { r.perfil = "u"; mud = true; } });
+  if (mud) save();
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) {} }
 
@@ -416,22 +425,24 @@ function criarProgramaVazio(pf, nome) {
   return pid;
 }
 function seedIfNeeded() {
-  // Cada perfil já abre com o seu treino carregado.
-  if (!programasDoPerfil("sergio").length) importarPrograma(programaV2(), "sergio", true);
-  if (!programasDoPerfil("clara").length) importarPrograma(programaClara(), "clara", true);
+  // Começa com os 2 modelos, ambos ativos.
+  if (!DB.programas.length) {
+    importarPrograma(programaV2(), "u", true);
+    importarPrograma(programaClara(), "u", true);
+  }
   DB.settings.seeded = true; save();
 }
-/** Zera histórico e volta os dois perfis aos treinos limpos (opt-in nas Config). */
+/** Zera histórico e volta aos 2 modelos limpos, ambos ativos (opt-in nas Config). */
 function zerarDados() {
   DB.programas = []; DB.treinos = []; DB.registros = []; DB.settings.ultimo = {};
-  importarPrograma(programaV2(), "sergio", true);
-  importarPrograma(programaClara(), "clara", true);
+  importarPrograma(programaV2(), "u", true);
+  importarPrograma(programaClara(), "u", true);
   DB.settings.seeded = true; DB.settings.claraSeeded = true;
   save();
 }
 
 /* ---------- Helpers de domínio ---------- */
-const PF = () => DB.settings.perfilAtivo;
+const PF = () => "u"; // usuário único (sem perfis)
 const accent = () => estAccent();
 const treinosDoPerfil = (pf = PF()) => DB.treinos.filter((t) => t.perfil === pf).sort((a, b) => a.ordem - b.ordem);
 const treinoPorId = (id) => DB.treinos.find((t) => t.id === id);
@@ -497,7 +508,7 @@ function sugereSubir(e, ultima) {
 
 /* ---------- Router ---------- */
 let stack = [{ name: "inicio" }];
-const TABS = ["inicio", "exercicios", "historico"];
+const TABS = ["inicio", "modelos", "exercicios", "historico"];
 let exBusca = "", exGrupo = "";
 const route = () => stack[stack.length - 1];
 function go(r) { stack.push(r); render(); }
@@ -528,24 +539,23 @@ function imgBig(nome) {
 }
 
 function render() {
-  const cfg = ESTILOS[estilo()];
-  document.body.dataset.estilo = estilo();
+  document.body.dataset.estilo = "clean";
   const ds = document.documentElement.style;
-  ds.setProperty("--accent", cfg.accent); ds.setProperty("--accent-ink", cfg.accentInk);
-  const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", cfg.bg);
+  ds.setProperty("--accent", "#2E6BE6"); ds.setProperty("--accent-ink", "#FFFFFF");
+  const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", "#FFFFFF");
   const r = route();
   const nav = document.getElementById("bottomnav");
   const isTab = TABS.includes(r.name);
   nav.style.display = isTab ? "flex" : "none";
   if (isTab) renderNav(r.name);
-  const fn = { inicio: renderInicio, programa: renderProgramaDias, exercicios: renderExercicios, historico: renderHistGeral, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
+  const fn = { inicio: renderInicio, modelos: renderModelos, programa: renderProgramaDias, exercicios: renderExercicios, historico: renderHistGeral, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
   fn(r);
   view().scrollTop = r._scroll || 0;
 }
 
 function renderNav(active) {
-  const label = { inicio: "Início", exercicios: "Exercícios", historico: "Histórico" };
-  const icon = { inicio: ICON.inicio, exercicios: ICON.treinos, historico: ICON.historico };
+  const label = { inicio: "Início", modelos: "Modelos", exercicios: "Exercícios", historico: "Histórico" };
+  const icon = { inicio: ICON.inicio, modelos: ICON.modelos, exercicios: ICON.treinos, historico: ICON.historico };
   document.getElementById("bottomnav").innerHTML = TABS.map((t) =>
     `<button class="nav-btn ${t === active ? "active" : ""}" data-tab="${t}">${icon[t]}<span>${label[t]}</span></button>`
   ).join("");
@@ -657,37 +667,37 @@ function progCard(p) {
     <span class="chev">›</span></div>`;
 }
 
+const nomeCurto = (n) => (n.includes("—") ? n.split("—")[0].trim() : (n.length > 18 ? n.slice(0, 18) + "…" : n));
+
 function renderInicio() {
-  const u = getUltimo();
-  let prog = u ? programaPorId(u.programaId) : null;
-  if (prog && prog.perfil !== PF()) prog = null;
-  if (!prog) prog = programasDoPerfil()[0] || null;
-  // Sem programa ainda → manda escolher um modelo
-  if (!prog) {
+  const ativos = programasAtivos();
+  if (!ativos.length) {
     view().innerHTML = `
-      <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(cap(hojeLabel()))}</span><span class="h1">Olá, ${perfil(PF()).nome}</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
-      ${perfilSwitchHtml()}
-      <div class="card pad empty">Sem treino carregado.<br><button class="btn primary" id="vermod" style="margin-top:12px">Carregar meu treino</button></div>`;
-    wirePerfil();
+      <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(cap(hojeLabel()))}</span><span class="h1">Treino do dia</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
+      <div class="card pad empty">Nenhum modelo ativo.<br><button class="btn primary" id="vermod" style="margin-top:12px">Ativar um modelo</button></div>`;
     document.getElementById("cfg").onclick = () => go({ name: "settings" });
-    document.getElementById("vermod").onclick = () => { seedIfNeeded(); render(); };
+    document.getElementById("vermod").onclick = () => setTab("modelos");
     return;
   }
+  const u = getUltimo();
+  const prog = ativos.find((p) => u && p.id === u.programaId) || ativos[0];
   const dias = treinosDoPrograma(prog.id);
-  const diaId = (u && dias.some((d) => d.id === u.treinoId)) ? u.treinoId : (dias[0] && dias[0].id);
+  const diaId = (u && u.programaId === prog.id && dias.some((d) => d.id === u.treinoId)) ? u.treinoId : (dias[0] && dias[0].id);
   const dia = dias.find((d) => d.id === diaId) || null;
-  if (dia) setUltimo(prog.id, dia.id);
+  setUltimo(prog.id, dia ? dia.id : null);
   const wu = dia ? (dia.aquecimento || []) : [];
   view().innerHTML = `
-    <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(prog.nome)}</span><span class="h1">${esc(dia ? dia.nome : "Treino")}</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
-    ${perfilSwitchHtml()}
+    <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(cap(hojeLabel()))}</span><span class="h1">Treino do dia</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
+    ${ativos.length > 1 ? `<div class="pswitch">${ativos.map((p) => `<button class="pbtn ${p.id === prog.id ? "active" : ""}" data-prog="${p.id}">${esc(nomeCurto(p.nome))}</button>`).join("")}</div>` : ""}
+    <div class="eyebrow" style="margin:2px 2px 2px">${esc(prog.nome)}</div>
     ${dias.length > 1 ? `<div class="daytabs">${dias.map((d) => `<button class="dtab ${dia && d.id === dia.id ? "on" : ""}" data-godia="${d.id}">${esc(d.tab || d.nome)}</button>`).join("")}</div>` : ""}
+    <div class="h1" style="margin:2px 2px 8px">${esc(dia ? dia.nome : "Treino")}</div>
     ${wu.length ? `<div class="card"><div class="wu-head" id="wuh"><span>🔥 Aquecimento</span><span id="wuchev">▸</span></div><div class="wu-body" id="wub" style="display:none">${wu.map((w) => `<div><div class="wu-t">${esc(w.titulo)}</div>${w.desc ? `<div class="wu-d">${esc(w.desc)}</div>` : ""}</div>`).join("")}</div></div>` : ""}
     ${dia && dia.exercicios.length ? dia.exercicios.map((e) => exCard(e)).join("") : `<div class="empty">Treino sem exercícios.</div>`}
     ${dia ? `<button class="btn wa" id="share">Compartilhar no WhatsApp</button>` : ""}
     <div style="height:10px"></div>`;
-  wirePerfil();
   document.getElementById("cfg").onclick = () => go({ name: "settings" });
+  view().querySelectorAll("[data-prog]").forEach((b) => b.onclick = () => { const p = programaPorId(b.dataset.prog); const d0 = treinosDoPrograma(p.id)[0]; setUltimo(p.id, d0 ? d0.id : null); render(); });
   view().querySelectorAll("[data-godia]").forEach((b) => b.onclick = () => { setUltimo(prog.id, b.dataset.godia); render(); });
   const wuh = document.getElementById("wuh");
   if (wuh) wuh.onclick = () => { const b = document.getElementById("wub"); const open = b.style.display !== "none"; b.style.display = open ? "none" : "flex"; document.getElementById("wuchev").textContent = open ? "▸" : "▾"; };
@@ -698,25 +708,34 @@ function renderInicio() {
   }
 }
 
-/* ---- Modelos (só os 2 prontos) ---- */
+/* ---- Modelos: criar, ativar (1-2) e editar ---- */
+function toggleAtivo(id) {
+  const p = programaPorId(id); if (!p) return;
+  if (!p.ativo && programasDoPerfil().filter((x) => x.ativo).length >= MAX_ATIVOS) { toast("Máximo de " + MAX_ATIVOS + " ativos"); return; }
+  p.ativo = !p.ativo; save(); render();
+}
 function renderModelos() {
+  const progs = programasDoPerfil();
   view().innerHTML = `
     <div class="hd"><div class="col"><span class="eyebrow">Treinos</span><span class="h1">Modelos</span></div></div>
-    ${perfilSwitchHtml()}
-    <div class="sectlbl">Escolha e comece</div>
+    <div class="muted" style="margin:2px 2px 10px">Ative 1 ou 2 pra aparecerem no Início.</div>
+    <button class="btn primary big" id="criar" style="margin-bottom:8px">+ Criar modelo</button>
+    ${progs.length ? progs.map((p) => {
+      const dias = treinosDoPrograma(p.id);
+      return `<div class="card pad">
+        <div class="col"><div class="exname">${esc(p.nome)}${p.ativo ? ` <span style="color:var(--accent);font-weight:700;font-size:11px">· ativo</span>` : ""}</div><div class="muted">${dias.length} dia${dias.length === 1 ? "" : "s"}</div></div>
+        <div class="btnrow"><button class="btn ${p.ativo ? "primary" : "ghost"}" data-toggle="${p.id}">${p.ativo ? "Ativo ✓" : "Ativar"}</button><button class="btn ghost" data-abrir="${p.id}">Abrir</button><button class="btn text" data-ren="${p.id}">✎</button><button class="btn text" data-del="${p.id}">🗑</button></div></div>`;
+    }).join("") : `<div class="empty">Nenhum modelo ainda.</div>`}
+    <div class="sectlbl">Modelos prontos</div>
     ${TEMPLATES.map((p, i) => `<div class="card pad"><div class="exname" style="font-weight:700">${esc(p.nome)}</div><div class="muted">${p.treinos.length} dias</div>
-      <div class="chips" style="margin:10px 0">${p.treinos.map((t) => `<span class="chip">${esc(t.tab || t.nome)}</span>`).join("")}</div>
-      <button class="btn primary" data-use="${i}" style="width:100%">Usar este modelo</button></div>`).join("")}
+      <button class="btn ghost" data-add="${i}" style="width:100%;margin-top:8px">Adicionar aos meus</button></div>`).join("")}
     <div style="height:8px"></div>`;
-  wirePerfil();
-  view().querySelectorAll("[data-use]").forEach((b) => b.onclick = () => usarModelo(TEMPLATES[+b.dataset.use]));
-}
-function usarModelo(modelo) {
-  let p = programasDoPerfil().find((x) => x.nome === modelo.nome);
-  const pid = p ? p.id : importarPrograma(modelo, PF(), true);
-  const dias = treinosDoPrograma(pid);
-  setUltimo(pid, dias[0] ? dias[0].id : null);
-  save(); toast("Treino pronto"); setTab("inicio");
+  document.getElementById("criar").onclick = () => { const id = criarProgramaVazio("u", "Novo modelo"); save(); go({ name: "programa", id }); };
+  view().querySelectorAll("[data-toggle]").forEach((b) => b.onclick = () => toggleAtivo(b.dataset.toggle));
+  view().querySelectorAll("[data-abrir]").forEach((b) => b.onclick = () => go({ name: "programa", id: b.dataset.abrir }));
+  view().querySelectorAll("[data-ren]").forEach((b) => b.onclick = () => { const p = programaPorId(b.dataset.ren); openSheet("Renomear modelo", `<input class="field" id="pn" value="${esc(p.nome)}">`, [{ label: "Salvar", primary: true, onClick: () => { const v = document.getElementById("pn").value.trim(); if (v) { p.nome = v; save(); render(); } } }]); });
+  view().querySelectorAll("[data-del]").forEach((b) => b.onclick = () => { const p = programaPorId(b.dataset.del); confirmar(`Excluir "${p.nome}"?`, "O modelo e seus dias serão removidos (o histórico é mantido).", () => { DB.treinos = DB.treinos.filter((t) => t.programaId !== p.id); DB.programas = DB.programas.filter((x) => x.id !== p.id); save(); render(); }); });
+  view().querySelectorAll("[data-add]").forEach((b) => b.onclick = () => { importarPrograma(TEMPLATES[+b.dataset.add], "u", false); save(); toast("Modelo adicionado"); render(); });
 }
 function compartilharDia(prog, dia) {
   const linhas = dia.exercicios.map((e) => "• " + e.nome + " — " + setsLabel(e)).join("\n");
@@ -972,20 +991,17 @@ function renderProgramas() {
 function renderSettings() {
   view().innerHTML = `
     <div class="hd"><div class="hd-row"><button class="backbtn" id="bk">‹</button><span class="title">Configurações</span></div></div>
-    <div class="sectlbl">Estilo visual</div>
-    <div class="card">${Object.entries(ESTILOS).map(([k, s]) => `<div class="radio ${estilo() === k ? "on" : ""}" data-estilo="${k}"><span class="r"></span><div class="col"><span>${s.nome}</span><span class="muted" style="font-size:11.5px">${s.vibe}</span></div></div>`).join("")}</div>
-    <div class="sectlbl">Backup (perfil ${perfil(PF()).nome})</div>
-    <div class="muted" style="margin-bottom:8px">Exporta ou importa os treinos do perfil ativo como JSON.</div>
+    <div class="sectlbl">Backup</div>
+    <div class="muted" style="margin-bottom:8px">Exporta ou importa seus treinos como JSON.</div>
     <button class="btn ghost" id="exp" style="width:100%;margin-bottom:8px">↓ Exportar treinos</button>
     <button class="btn ghost" id="imp" style="width:100%">↑ Importar treinos</button>
     <input type="file" id="fileimp" accept="application/json,.json" style="display:none">
     <div class="sectlbl">Dados</div>
-    <button class="btn ghost" id="zerar" style="width:100%;color:var(--red)">Zerar dados (começar do zero)</button>
-    <div class="muted" style="margin-top:6px">Apaga programas e histórico dos dois perfis. Não dá pra desfazer.</div>
+    <button class="btn ghost" id="zerar" style="width:100%;color:var(--red)">Zerar dados (voltar aos modelos)</button>
+    <div class="muted" style="margin-top:6px">Apaga seus modelos e histórico e recarrega os 2 modelos limpos. Não dá pra desfazer.</div>
     <div class="footnote">Treino · app local (PWA). A sincronização entre aparelhos chega com a API (Etapa 2).</div>`;
   document.getElementById("bk").onclick = back;
-  document.getElementById("zerar").onclick = () => confirmar("Zerar todos os dados?", "Apaga programas e histórico dos dois perfis. Não dá pra desfazer.", () => { zerarDados(); toast("Dados apagados"); setTab("inicio"); });
-  view().querySelectorAll("[data-estilo]").forEach((el) => el.onclick = () => { DB.settings.estilo = el.dataset.estilo; save(); render(); });
+  document.getElementById("zerar").onclick = () => confirmar("Zerar todos os dados?", "Apaga seus modelos e histórico e recarrega os 2 modelos limpos. Não dá pra desfazer.", () => { zerarDados(); toast("Dados apagados"); setTab("inicio"); });
   document.getElementById("exp").onclick = () => {
     const prog = { nome: "Programa", treinos: treinosDoPerfil().map((t) => ({ nome: t.nome, tab: t.tab, aquecimento: t.aquecimento, exercicios: t.exercicios.map((e) => ({ nome: e.nome, series: e.series, repMin: e.repMin, repMax: e.repMax, repTexto: e.repTexto, foco: e.foco, descansoSeg: e.descansoSeg })) })) };
     const blob = new Blob([JSON.stringify({ app: "treino", versao: 1, perfil: PF(), programa: prog }, null, 2)], { type: "application/json" });

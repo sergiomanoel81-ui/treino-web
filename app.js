@@ -127,6 +127,7 @@ const CATALOGO = [
   c("Press Pallof (anti-rotação)", "Core", "press_pallof_anti_rotacao.jpg", "De lado para a polia, empurre a pega à frente resistindo à rotação do tronco; volte devagar."),
   c("Dead bug", "Core", "dead_bug.jpg", "Deitado, braços e joelhos para cima. Estenda braço e perna opostos sem arquear a lombar e volte; alterne."),
   c("Bird-dog", "Core", null, "Em quatro apoios, estenda braço e perna opostos mantendo o tronco estável; volte e alterne. Core 'em X'."),
+  c("Abdominal roda (ab wheel)", "Core", null, "De joelhos, role a roda à frente mantendo o abdômen e o glúteo firmes (sem deixar a lombar afundar) e puxe de volta. Core anti-extensão."),
   c("Meio levantamento turco", "Core", "meio_levantamento_turco.jpg", "Deitado com peso no braço estendido, levante até sentar apoiado na outra mão, sempre olhando o peso. Estabilidade de ombro."),
   c("Remada renegado", "Core", "remada_renegado.jpg", "Na posição de flexão com halteres, reme um de cada vez sem girar o quadril. Anti-rotação."),
   // Pliometria & potência
@@ -248,6 +249,7 @@ function programaV2() {
         { titulo: "Mobilidade de quadril", desc: "90/90, agachamento profundo apoiado, afundo com rotação e rotações de quadril — ~8 min." },
       ], exercicios: [
         ex("Agachamento goblet ou frontal", 4, 5, 6, null, "Força"),
+        ex("Leg press", 3, 10, 12, null, "Quadríceps"),
         ex("Agachamento búlgaro com halteres", 3, null, null, "8 / perna", "Unilateral"),
         ex("Agachamento cossaco", 3, null, null, "8 / lado", "Mobilidade + força"),
         ex("Panturrilha unilateral", 3, null, null, "12 / lado", "Resistência"),
@@ -269,7 +271,7 @@ function programaV2() {
         { titulo: "Flow de mobilidade", desc: "Sequência fluida de mobilidade de quadril e ombro — ~10 min." },
       ], exercicios: [
         ex("Meio levantamento turco", 4, null, null, "4 / lado", "Estab. ombro"),
-        ex("Terra romeno unilateral", 3, null, null, "8 / lado", "Equilíbrio + posterior"),
+        ex("Abdominal roda (ab wheel)", 3, 8, 12, null, "Core anti-extensão"),
         ex("Remada renegado", 3, null, null, "6 / lado", "Anti-rotação (X)"),
         ex("Bird-dog", 3, null, null, "8 / lado", "Core em X"),
         ex("Condicionamento (kettlebell swing)", 1, null, null, "15-20 min", "Cardio"),

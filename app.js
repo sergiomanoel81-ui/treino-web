@@ -386,7 +386,7 @@ function load() {
 /** App virou usuário único: tudo passa a pertencer ao perfil "u". */
 function migrarUsuarioUnico() {
   let mud = false;
-  DB.programas.forEach((p) => { if (p.perfil !== "u") { p.perfil = "u"; mud = true; } });
+  DB.programas.forEach((p) => { if (p.perfil !== "u") { p.perfil = "u"; mud = true; } if (p.meses == null) { p.meses = 3; mud = true; } });
   DB.treinos.forEach((t) => { if (t.perfil !== "u") { t.perfil = "u"; mud = true; } });
   DB.registros.forEach((r) => { if (r.perfil !== "u") { r.perfil = "u"; mud = true; } });
   if (mud) save();
@@ -410,7 +410,7 @@ function migrarProgramas() {
 /** Cria um programa (com seus dias) para o perfil. Retorna o id do programa. */
 function importarPrograma(programa, pf, ativo = true) {
   const pid = uid();
-  DB.programas.push({ id: pid, perfil: pf, nome: programa.nome || "Programa", origem: programa.origem || "modelo", ativo: ativo, inicioMs: Date.now(), ordem: DB.programas.filter((p) => p.perfil === pf).length });
+  DB.programas.push({ id: pid, perfil: pf, nome: programa.nome || "Programa", origem: programa.origem || "modelo", ativo: ativo, inicioMs: Date.now(), meses: 3, ordem: DB.programas.filter((p) => p.perfil === pf).length });
   let ordem = 0;
   for (const t of programa.treinos) {
     DB.treinos.push({
@@ -423,8 +423,52 @@ function importarPrograma(programa, pf, ativo = true) {
 }
 function criarProgramaVazio(pf, nome) {
   const pid = uid();
-  DB.programas.push({ id: pid, perfil: pf, nome: nome || "Novo programa", origem: "criado", ativo: true, inicioMs: Date.now(), ordem: DB.programas.filter((p) => p.perfil === pf).length });
+  DB.programas.push({ id: pid, perfil: pf, nome: nome || "Novo programa", origem: "criado", ativo: true, inicioMs: Date.now(), meses: 3, ordem: DB.programas.filter((p) => p.perfil === pf).length });
   return pid;
+}
+
+/* ---------- Ciclo (início + meses → meta de treinos pelos dias do modelo) ---------- */
+const SEM_MES = 52 / 12; // ~4.333 semanas por mês
+function mapaExPrograma() {
+  const m = {};
+  DB.treinos.forEach((t) => (t.exercicios || []).forEach((e) => { m[e.id] = t.programaId; }));
+  return m;
+}
+const diasDoModelo = (p) => Math.max(1, treinosDoPrograma(p.id).length);
+const metaSessoes = (p) => Math.max(1, Math.round((p.meses || 3) * SEM_MES * diasDoModelo(p)));
+function sessoesFeitas(p) {
+  const m = mapaExPrograma();
+  const dias = new Set();
+  DB.registros.forEach((r) => { if (m[r.exercicioId] === p.id && r.dataMs >= (p.inicioMs || 0)) dias.add(epochDay(r.dataMs)); });
+  return dias.size;
+}
+function cicloInfo(p) {
+  const dias = diasDoModelo(p);
+  const meta = metaSessoes(p);
+  const feitas = sessoesFeitas(p);
+  const restantes = Math.max(0, meta - feitas);
+  const hoje = Date.now();
+  const inicio = p.inicioMs || hoje;
+  const semanasTotais = Math.ceil(meta / dias);
+  const fimIdeal = inicio + Math.round((meta / dias) * 7) * 864e5;
+  // Fim previsto: do ritmo atual — faltou treino, empurra o fim.
+  const fimPrevisto = restantes === 0 ? Math.max(inicio, hoje) : hoje + Math.ceil((restantes / dias) * 7) * 864e5;
+  return { dias, meta, feitas, restantes, inicio, fimIdeal, fimPrevisto, semanasTotais, semana: Math.min(semanasTotais, Math.floor(feitas / dias) + 1), pct: Math.min(100, Math.round((feitas / meta) * 100)), concluido: restantes === 0 };
+}
+const isoDate = (ms) => { const d = new Date(ms); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); };
+function parseDate(v) { const p = (v || "").split("-"); if (p.length !== 3) return null; const d = new Date(+p[0], +p[1] - 1, +p[2]); return isNaN(d) ? null : d.getTime(); }
+function configurarCiclo(p) {
+  openSheet("Ciclo de treino", `
+    <div class="muted" style="margin-bottom:4px">Data de início</div>
+    <input class="field" id="cini" type="date" value="${isoDate(p.inicioMs || Date.now())}">
+    <div class="muted" style="margin:10px 0 4px">Duração (meses)</div>
+    <input class="field" id="cmes" type="number" min="1" max="12" value="${p.meses || 3}">
+    <div class="muted" style="margin-top:10px">Os treinos são calculados pelos dias do modelo (${diasDoModelo(p)}/semana).</div>`,
+    [{ label: "Salvar", primary: true, onClick: () => {
+      const ini = parseDate(document.getElementById("cini").value); if (ini) p.inicioMs = ini;
+      const me = parseInt(document.getElementById("cmes").value); if (me >= 1 && me <= 12) p.meses = me;
+      save(); render();
+    } }]);
 }
 function seedIfNeeded() {
   // Começa com os 2 modelos, ambos ativos.
@@ -510,7 +554,8 @@ function sugereSubir(e, ultima) {
 
 /* ---------- Router ---------- */
 let stack = [{ name: "inicio" }];
-const TABS = ["inicio", "modelos", "exercicios", "historico"];
+const TABS = ["inicio", "modelos", "exercicios", "calendario"];
+let calMes = null; // {ano, mes} do mês exibido no calendário
 let exBusca = "", exGrupo = "";
 const route = () => stack[stack.length - 1];
 function go(r) { stack.push(r); render(); }
@@ -550,14 +595,14 @@ function render() {
   const isTab = TABS.includes(r.name);
   nav.style.display = isTab ? "flex" : "none";
   if (isTab) renderNav(r.name);
-  const fn = { inicio: renderInicio, modelos: renderModelos, programa: renderProgramaDias, exercicios: renderExercicios, historico: renderHistGeral, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
+  const fn = { inicio: renderInicio, modelos: renderModelos, programa: renderProgramaDias, exercicios: renderExercicios, calendario: renderCalendario, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
   fn(r);
   view().scrollTop = r._scroll || 0;
 }
 
 function renderNav(active) {
-  const label = { inicio: "Início", modelos: "Modelos", exercicios: "Exercícios", historico: "Histórico" };
-  const icon = { inicio: ICON.inicio, modelos: ICON.modelos, exercicios: ICON.treinos, historico: ICON.historico };
+  const label = { inicio: "Início", modelos: "Modelos", exercicios: "Exercícios", calendario: "Calendário" };
+  const icon = { inicio: ICON.inicio, modelos: ICON.modelos, exercicios: ICON.treinos, calendario: ICON.historico };
   document.getElementById("bottomnav").innerHTML = TABS.map((t) =>
     `<button class="nav-btn ${t === active ? "active" : ""}" data-tab="${t}">${icon[t]}<span>${label[t]}</span></button>`
   ).join("");
@@ -691,9 +736,10 @@ function renderInicio() {
   view().innerHTML = `
     <div class="hd"><div class="hd-row"><div class="col"><span class="greet">${esc(cap(hojeLabel()))}</span><span class="h1">Treino do dia</span></div><div class="spacer"></div><button class="iconbtn" id="cfg">${ICON.gear}</button></div></div>
     ${ativos.length > 1 ? `<div class="pswitch">${ativos.map((p) => `<button class="pbtn ${p.id === prog.id ? "active" : ""}" data-prog="${p.id}">${esc(nomeCurto(p.nome))}</button>`).join("")}</div>` : ""}
-    <div class="eyebrow" style="margin:2px 2px 2px">${esc(prog.nome)}</div>
+    ${dashHtml(prog)}
+    <div class="sectlbl" style="margin-top:16px">${esc(prog.nome)}</div>
     ${dias.length > 1 ? `<div class="daytabs">${dias.map((d) => `<button class="dtab ${dia && d.id === dia.id ? "on" : ""}" data-godia="${d.id}">${esc(d.tab || d.nome)}</button>`).join("")}</div>` : ""}
-    <div class="h1" style="margin:2px 2px 8px">${esc(dia ? dia.nome : "Treino")}</div>
+    <div class="daytitle">${esc(dia ? dia.nome : "Treino")}</div>
     ${wu.length ? `<div class="card"><div class="wu-head" id="wuh"><span>🔥 Aquecimento</span><span id="wuchev">▸</span></div><div class="wu-body" id="wub" style="display:none">${wu.map((w) => `<div><div class="wu-t">${esc(w.titulo)}</div>${w.desc ? `<div class="wu-d">${esc(w.desc)}</div>` : ""}</div>`).join("")}</div></div>` : ""}
     ${dia && dia.exercicios.length ? dia.exercicios.map((e) => exCard(e)).join("") : `<div class="empty">Treino sem exercícios.</div>`}
     ${dia ? `<button class="btn wa" id="share">Compartilhar no WhatsApp</button>` : ""}
@@ -708,6 +754,65 @@ function renderInicio() {
     view().querySelectorAll("[data-hist]").forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); go({ name: "histex", exId: b.dataset.hist, nome: b.dataset.nome }); });
     const sh = document.getElementById("share"); if (sh) sh.onclick = () => compartilharDia(prog, dia);
   }
+}
+
+/* ---- Dashboard do ciclo ---- */
+function dashHtml(prog) {
+  const ci = cicloInfo(prog);
+  const l7 = Date.now() - 7 * 864e5, m = mapaExPrograma(), sem = new Set();
+  DB.registros.forEach((r) => { if (m[r.exercicioId] === prog.id && r.dataMs >= l7) sem.add(epochDay(r.dataMs)); });
+  const prev = ci.concluido ? "Ciclo concluído 🎉" : "Previsão de término: " + fmtData(ci.fimPrevisto);
+  return `<div class="dash">
+    <div class="dash-top">
+      <div class="dash-big">${ci.feitas}<span class="dash-small">/ ${ci.meta}</span></div>
+      <div class="dash-lbls"><div class="dash-l1">treinos do ciclo</div><div class="dash-l2">Semana ${ci.semana} de ${ci.semanasTotais} · ${sem.size} esta semana</div></div>
+    </div>
+    <div class="dash-bar"><i style="width:${ci.pct}%"></i></div>
+    <div class="dash-foot"><span>${ci.pct}% feito</span><span>${esc(prev)}</span></div>
+  </div>`;
+}
+
+/* ---- Calendário (histórico + previsibilidade) ---- */
+function renderCalendario() {
+  const ativos = programasAtivos();
+  const u = getUltimo();
+  const prog = ativos.find((p) => u && p.id === u.programaId) || ativos[0] || programasDoPerfil()[0] || null;
+  const now = new Date();
+  if (!calMes) calMes = { ano: now.getFullYear(), mes: now.getMonth() };
+  const { ano, mes } = calMes;
+  const treinados = {};
+  DB.registros.forEach((r) => { const e = epochDay(r.dataMs); treinados[e] = (treinados[e] || 0) + 1; });
+  const inicioSemana = new Date(ano, mes, 1).getDay();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const hojeEd = epochDay(Date.now());
+  let cells = "";
+  for (let i = 0; i < inicioSemana; i++) cells += `<div class="cal-cell empty"></div>`;
+  for (let d = 1; d <= diasNoMes; d++) {
+    const ed = epochDay(new Date(ano, mes, d).getTime());
+    const on = treinados[ed] ? "on" : "", hj = ed === hojeEd ? "hoje" : "";
+    cells += `<div class="cal-cell ${on} ${hj}" data-ed="${ed}"><span>${d}</span>${treinados[ed] ? `<i class="cal-dot"></i>` : ""}</div>`;
+  }
+  view().innerHTML = `
+    <div class="hd"><div class="col"><span class="eyebrow">Calendário</span><span class="h1">Seu progresso</span></div></div>
+    ${prog ? dashHtml(prog) : `<div class="card pad empty">Ative um modelo pra acompanhar o ciclo.</div>`}
+    ${prog ? `<div class="muted" style="margin:8px 2px 2px">Início ${fmtData(cicloInfo(prog).inicio)} · meta ${metaSessoes(prog)} treinos (${prog.meses || 3} ${((prog.meses || 3) === 1) ? "mês" : "meses"})</div>` : ""}
+    <div class="cal-head"><button class="iconbtn" id="calprev">‹</button><div class="cal-title">${cap(MESES[mes])} ${ano}</div><button class="iconbtn" id="calnext">›</button></div>
+    <div class="cal-grid cal-wd">${["D", "S", "T", "Q", "Q", "S", "S"].map((w) => `<div class="cal-wdl">${w}</div>`).join("")}</div>
+    <div class="cal-grid">${cells}</div>
+    <div id="caldia"></div>
+    <div style="height:10px"></div>`;
+  document.getElementById("calprev").onclick = () => { calMes = { ano: mes === 0 ? ano - 1 : ano, mes: (mes + 11) % 12 }; render(); };
+  document.getElementById("calnext").onclick = () => { calMes = { ano: mes === 11 ? ano + 1 : ano, mes: (mes + 1) % 12 }; render(); };
+  view().querySelectorAll("[data-ed]").forEach((c) => c.onclick = () => mostrarDiaCal(+c.dataset.ed));
+}
+function mostrarDiaCal(ed) {
+  const box = document.getElementById("caldia"); if (!box) return;
+  const regs = DB.registros.filter((r) => epochDay(r.dataMs) === ed);
+  if (!regs.length) { box.innerHTML = `<div class="muted" style="margin:14px 2px">Nada registrado nesse dia.</div>`; return; }
+  const byEx = {}; regs.forEach((r) => { (byEx[r.exercicioId] = byEx[r.exercicioId] || []).push(r); });
+  const ms = Math.max(...regs.map((r) => r.dataMs));
+  const itens = Object.values(byEx).map((rs) => `<div class="card pad caldia-ex"><div class="exname">${esc(rs[0].exercicioNome)}</div><div class="muted">${esc(resumoSets(rs.sort((a, b) => a.serieIndex - b.serieIndex).map((r) => ({ carga: r.carga, reps: r.reps }))))}</div></div>`).join("");
+  box.innerHTML = `<div class="sectlbl">${fmtData(ms)} · ${Object.keys(byEx).length} exercício${Object.keys(byEx).length === 1 ? "" : "s"}</div>${itens}`;
 }
 
 /* ---- Modelos: criar, ativar (1-2) e editar ---- */
@@ -725,8 +830,8 @@ function renderModelos() {
     ${progs.length ? progs.map((p) => {
       const dias = treinosDoPrograma(p.id);
       return `<div class="card pad">
-        <div class="col"><div class="exname">${esc(p.nome)}${p.ativo ? ` <span style="color:var(--accent);font-weight:700;font-size:11px">· ativo</span>` : ""}</div><div class="muted">${dias.length} dia${dias.length === 1 ? "" : "s"}</div></div>
-        <div class="btnrow"><button class="btn ${p.ativo ? "primary" : "ghost"}" data-toggle="${p.id}">${p.ativo ? "Ativo ✓" : "Ativar"}</button><button class="btn ghost" data-abrir="${p.id}">Abrir</button><button class="btn text" data-ren="${p.id}">✎</button><button class="btn text" data-del="${p.id}">🗑</button></div></div>`;
+        <div class="col"><div class="exname">${esc(p.nome)}${p.ativo ? ` <span style="color:var(--accent);font-weight:700;font-size:11px">· ativo</span>` : ""}</div><div class="muted">${dias.length} dia${dias.length === 1 ? "" : "s"} · ciclo ${metaSessoes(p)} treinos (${p.meses || 3} ${((p.meses || 3) === 1) ? "mês" : "meses"})</div></div>
+        <div class="btnrow"><button class="btn ${p.ativo ? "primary" : "ghost"}" data-toggle="${p.id}">${p.ativo ? "Ativo ✓" : "Ativar"}</button><button class="btn ghost" data-abrir="${p.id}">Abrir</button><button class="btn text" data-ciclo="${p.id}">Ciclo</button><button class="btn text" data-ren="${p.id}">✎</button><button class="btn text" data-del="${p.id}">🗑</button></div></div>`;
     }).join("") : `<div class="empty">Nenhum modelo ainda.</div>`}
     <div class="sectlbl">Modelos prontos</div>
     ${TEMPLATES.map((p, i) => `<div class="card pad"><div class="exname" style="font-weight:700">${esc(p.nome)}</div><div class="muted">${p.treinos.length} dias</div>
@@ -734,6 +839,7 @@ function renderModelos() {
     <div style="height:8px"></div>`;
   document.getElementById("criar").onclick = () => { const id = criarProgramaVazio("u", "Novo modelo"); save(); go({ name: "programa", id }); };
   view().querySelectorAll("[data-toggle]").forEach((b) => b.onclick = () => toggleAtivo(b.dataset.toggle));
+  view().querySelectorAll("[data-ciclo]").forEach((b) => b.onclick = () => configurarCiclo(programaPorId(b.dataset.ciclo)));
   view().querySelectorAll("[data-abrir]").forEach((b) => b.onclick = () => go({ name: "programa", id: b.dataset.abrir }));
   view().querySelectorAll("[data-ren]").forEach((b) => b.onclick = () => { const p = programaPorId(b.dataset.ren); openSheet("Renomear modelo", `<input class="field" id="pn" value="${esc(p.nome)}">`, [{ label: "Salvar", primary: true, onClick: () => { const v = document.getElementById("pn").value.trim(); if (v) { p.nome = v; save(); render(); } } }]); });
   view().querySelectorAll("[data-del]").forEach((b) => b.onclick = () => { const p = programaPorId(b.dataset.del); confirmar(`Excluir "${p.nome}"?`, "O modelo e seus dias serão removidos (o histórico é mantido).", () => { DB.treinos = DB.treinos.filter((t) => t.programaId !== p.id); DB.programas = DB.programas.filter((x) => x.id !== p.id); save(); render(); }); });

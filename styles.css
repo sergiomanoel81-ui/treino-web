@@ -21,7 +21,7 @@ input:focus, textarea:focus { outline: none; }
 /* header */
 .hd { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: calc(18px + env(safe-area-inset-top)) 0 12px; margin-bottom: 6px; }
 .hd-row { display: flex; align-items: center; gap: 10px; }
-.col { display: flex; flex-direction: column; }
+.col { display: flex; flex-direction: column; min-width: 0; }
 .spacer { flex: 1; }
 .greet { font-size: 12.5px; color: var(--ink2); font-weight: 600; letter-spacing: 0; }
 .eyebrow { font-size: 11px; letter-spacing: 1.6px; color: var(--ink2); font-weight: 700; text-transform: uppercase; }
@@ -56,7 +56,7 @@ input:focus, textarea:focus { outline: none; }
 .btn.text { color: var(--accent); background: transparent; padding: 11px 10px; }
 .btn.big { width: 100%; padding: 15px; font-size: 15.5px; border-radius: 14px; }
 .btn:disabled { opacity: .45; }
-.btnrow { display: flex; gap: 10px; margin-top: 12px; }
+.btnrow { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
 
 /* week */
 .week-n { font-size: 23px; font-weight: 800; letter-spacing: -0.5px; }
@@ -70,7 +70,7 @@ input:focus, textarea:focus { outline: none; }
 .tcard { display: flex; align-items: center; gap: 14px; padding: 14px; }
 .tab-chip { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0; letter-spacing: -0.2px; }
 .chev { color: var(--ink3); font-size: 22px; font-weight: 300; }
-.exname { font-size: 15.5px; font-weight: 700; line-height: 1.25; letter-spacing: -0.2px; }
+.exname { font-size: 15.5px; font-weight: 700; line-height: 1.25; letter-spacing: -0.2px; word-break: break-word; }
 
 /* exercise card */
 .exhead { display: flex; gap: 14px; align-items: center; }
@@ -262,3 +262,33 @@ body[data-estilo="brutalista"] .btn.wa { border: 2.5px solid #111; box-shadow: 3
 /* Exercício tocável (toque abre o registrar) */
 .exitem { cursor: pointer; }
 .exitem:active { background: var(--s2); }
+
+/* ---- Dashboard do ciclo ---- */
+.dash { background: var(--s1); border-radius: 16px; padding: 16px; margin-top: 8px; }
+.dash-top { display: flex; align-items: center; gap: 12px; }
+.dash-big { font-size: 30px; font-weight: 800; letter-spacing: -1px; color: var(--ink); line-height: 1; }
+.dash-small { font-size: 16px; font-weight: 700; color: var(--ink3); }
+.dash-lbls { display: flex; flex-direction: column; min-width: 0; }
+.dash-l1 { font-size: 13px; color: var(--ink2); font-weight: 600; }
+.dash-l2 { font-size: 12px; color: var(--ink3); margin-top: 2px; }
+.dash-bar { height: 10px; border-radius: 999px; background: var(--s3); overflow: hidden; margin: 14px 0 8px; }
+.dash-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+.dash-foot { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--ink2); font-weight: 600; }
+
+/* ---- Título do dia ---- */
+.daytitle { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin: 6px 2px 10px; }
+.pbtn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Calendário ---- */
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 10px; }
+.cal-title { font-size: 16px; font-weight: 800; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-wd { margin-bottom: 4px; }
+.cal-wdl { text-align: center; font-size: 11px; font-weight: 700; color: var(--ink3); }
+.cal-cell { aspect-ratio: 1; min-width: 0; min-height: 0; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; color: var(--ink); background: var(--s1); position: relative; }
+.cal-cell.empty { background: transparent; }
+.cal-cell.on { background: var(--accent); color: var(--accent-ink); font-weight: 800; }
+.cal-cell.hoje { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-cell.on.hoje { box-shadow: inset 0 0 0 2px var(--ink); }
+.cal-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.caldia-ex { margin-bottom: 8px; }

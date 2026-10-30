@@ -595,7 +595,7 @@ function render() {
   const isTab = TABS.includes(r.name);
   nav.style.display = isTab ? "flex" : "none";
   if (isTab) renderNav(r.name);
-  const fn = { inicio: renderInicio, modelos: renderModelos, programa: renderProgramaDias, exercicios: renderExercicios, calendario: renderCalendario, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
+  const fn = { inicio: renderInicio, modelos: renderModelos, programa: renderProgramaDias, exercicios: renderExercicios, calendario: renderCalendario, sessao: renderSessao, editor: renderEditor, histex: renderHistEx, settings: renderSettings }[r.name];
   fn(r);
   view().scrollTop = r._scroll || 0;
 }
@@ -740,6 +740,7 @@ function renderInicio() {
     <div class="sectlbl" style="margin-top:16px">${esc(prog.nome)}</div>
     ${dias.length > 1 ? `<div class="daytabs">${dias.map((d) => `<button class="dtab ${dia && d.id === dia.id ? "on" : ""}" data-godia="${d.id}">${esc(d.tab || d.nome)}</button>`).join("")}</div>` : ""}
     <div class="daytitle">${esc(dia ? dia.nome : "Treino")}</div>
+    ${dia && dia.exercicios.length ? `<button class="btn primary big" id="iniciar" style="margin-bottom:10px">▶ Iniciar treino</button>` : ""}
     ${wu.length ? `<div class="card"><div class="wu-head" id="wuh"><span>🔥 Aquecimento</span><span id="wuchev">▸</span></div><div class="wu-body" id="wub" style="display:none">${wu.map((w) => `<div><div class="wu-t">${esc(w.titulo)}</div>${w.desc ? `<div class="wu-d">${esc(w.desc)}</div>` : ""}</div>`).join("")}</div></div>` : ""}
     ${dia && dia.exercicios.length ? dia.exercicios.map((e) => exCard(e)).join("") : `<div class="empty">Treino sem exercícios.</div>`}
     ${dia ? `<button class="btn wa" id="share">Compartilhar no WhatsApp</button>` : ""}
@@ -750,10 +751,101 @@ function renderInicio() {
   const wuh = document.getElementById("wuh");
   if (wuh) wuh.onclick = () => { const b = document.getElementById("wub"); const open = b.style.display !== "none"; b.style.display = open ? "none" : "flex"; document.getElementById("wuchev").textContent = open ? "▸" : "▾"; };
   if (dia) {
+    const it = document.getElementById("iniciar"); if (it) it.onclick = () => iniciarTreino(prog, dia);
     view().querySelectorAll("[data-reg]").forEach((c) => c.onclick = (ev) => { if (ev.target.closest("[data-hist]")) return; modalRegistrar(dia.exercicios.find((e) => e.id === c.dataset.reg)); });
     view().querySelectorAll("[data-hist]").forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); go({ name: "histex", exId: b.dataset.hist, nome: b.dataset.nome }); });
     const sh = document.getElementById("share"); if (sh) sh.onclick = () => compartilharDia(prog, dia);
   }
+}
+
+/* ---- Sessão guiada (Iniciar treino) ---- */
+let sessao = null;
+function iniciarTreino(prog, dia) {
+  const dados = {};
+  dia.exercicios.forEach((e) => {
+    const ult = sessoes(registrosDe(e.id))[0];
+    const n = Math.min(Math.max(ult ? ult.sets.length : e.series, 1), 12);
+    const base = ult ? ((ult.sets.find((s) => s.carga > 0) || {}).carga || 0) : 0;
+    const repAlvo = e.repMax != null ? e.repMax : (e.repMin != null ? e.repMin : 0);
+    dados[e.id] = Array.from({ length: n }, (_, i) => {
+      const c = ult && ult.sets[i] ? ult.sets[i].carga : base;
+      const rp = ult && ult.sets[i] ? ult.sets[i].reps : repAlvo;
+      return { carga: c > 0 ? fmtCarga(c) : "0", reps: rp > 0 ? "" + rp : "0", done: false };
+    });
+  });
+  sessao = { progId: prog.id, diaId: dia.id, ts: Date.now(), idx: 0, dados };
+  go({ name: "sessao" });
+}
+function sessRow(r, i) {
+  return `<div class="setrow ${r.done ? "done" : ""}" data-i="${i}"><div class="sn">S${i + 1}</div>
+    <div class="stepper"><button class="step" data-dec="c">−</button><input class="stepval" data-v="c" inputmode="decimal" value="${r.carga}"><button class="step" data-inc="c">+</button></div>
+    <div class="stepper"><button class="step" data-dec="r">−</button><input class="stepval" data-v="r" inputmode="numeric" value="${r.reps}"><button class="step" data-inc="r">+</button></div>
+    <button class="check ${r.done ? "on" : ""}" data-chk>✓</button></div>`;
+}
+function renderSessao() {
+  if (!sessao) return setTab("inicio");
+  const dia = treinosDoPrograma(sessao.progId).find((d) => d.id === sessao.diaId) || treinoPorId(sessao.diaId);
+  if (!dia || !dia.exercicios.length) { sessao = null; return setTab("inicio"); }
+  const exs = dia.exercicios;
+  if (sessao.idx >= exs.length) sessao.idx = exs.length - 1;
+  const i = sessao.idx, e = exs[i], rows = sessao.dados[e.id] || (sessao.dados[e.id] = [{ carga: "0", reps: "0", done: false }]);
+  const ult = sessoes(registrosDe(e.id))[0], pr = recorde(registrosDe(e.id));
+  view().innerHTML = `
+    <div class="hd"><div class="hd-row"><button class="backbtn" id="sair">✕</button><div class="col"><span class="eyebrow">Treino · ${i + 1} de ${exs.length}</span><span class="title">${esc(dia.nome)}</span></div></div></div>
+    <div class="sess-prog"><i style="width:${Math.round((i / exs.length) * 100)}%"></i></div>
+    <div class="daytitle">${esc(e.nome)}</div>
+    <div class="muted">Alvo: ${esc(setsLabel(e))}${ult ? ` · última: ${esc(resumoSets(ult.sets))}` : ""}${pr > 0 ? ` · recorde ${fmtCarga(pr)}kg` : ""}</div>
+    <div class="setcols" style="margin-top:12px"><div style="width:30px"></div><div class="c">Carga (kg)</div><div class="c">Reps</div><div style="width:40px"></div></div>
+    <div id="rows">${rows.map((r, k) => sessRow(r, k)).join("")}</div>
+    <div class="row" style="margin-top:8px"><button class="mini" id="less">− série</button><button class="mini" id="more">+ série</button></div>
+    <div class="sess-nav">
+      ${i > 0 ? `<button class="btn ghost" id="prev">‹ Anterior</button>` : `<span></span>`}
+      ${i < exs.length - 1 ? `<button class="btn primary" id="next">Próximo ›</button>` : `<button class="btn primary" id="concluir">Concluir treino</button>`}
+    </div>
+    <div style="height:14px"></div>`;
+  function rewire() {
+    view().querySelectorAll(".setrow").forEach((row) => {
+      const k = +row.dataset.i;
+      row.querySelectorAll(".stepval").forEach((inp) => inp.oninput = () => { rows[k][inp.dataset.v === "c" ? "carga" : "reps"] = inp.value; });
+      row.querySelectorAll("[data-dec],[data-inc]").forEach((btn) => btn.onclick = () => {
+        const field = (btn.dataset.dec || btn.dataset.inc) === "c" ? "carga" : "reps";
+        const step = field === "carga" ? 5 : 1, dir = btn.hasAttribute("data-inc") ? 1 : -1;
+        let v = parseFloat((rows[k][field] || "0").replace(",", ".")) || 0; v = Math.max(0, v + dir * step);
+        rows[k][field] = field === "carga" ? fmtCarga(v) : "" + Math.round(v);
+        row.querySelector(`.stepval[data-v="${field === "carga" ? "c" : "r"}"]`).value = rows[k][field];
+      });
+      row.querySelector("[data-chk]").onclick = () => { rows[k].done = !rows[k].done; row.classList.toggle("done", rows[k].done); row.querySelector(".check").classList.toggle("on", rows[k].done); };
+    });
+    document.getElementById("less").onclick = () => { if (rows.length > 1) { rows.pop(); redraw(); } };
+    document.getElementById("more").onclick = () => { const last = rows[rows.length - 1]; rows.push({ carga: last ? last.carga : "0", reps: last ? last.reps : "0", done: false }); redraw(); };
+  }
+  function redraw() { document.getElementById("rows").innerHTML = rows.map((r, k) => sessRow(r, k)).join(""); rewire(); }
+  rewire();
+  document.getElementById("sair").onclick = () => confirmar("Sair do treino?", "O que você ainda não concluiu não será salvo.", () => { sessao = null; setTab("inicio"); });
+  const pv = document.getElementById("prev"); if (pv) pv.onclick = () => { sessao.idx--; render(); };
+  const nx = document.getElementById("next"); if (nx) nx.onclick = () => { sessao.idx++; render(); };
+  const cc = document.getElementById("concluir"); if (cc) cc.onclick = concluirTreino;
+}
+function concluirTreino() {
+  const dia = treinosDoPrograma(sessao.progId).find((d) => d.id === sessao.diaId) || treinoPorId(sessao.diaId);
+  let vol = 0, prs = 0, nEx = 0;
+  dia.exercicios.forEach((e) => {
+    const rows = sessao.dados[e.id] || [];
+    const prevPr = recorde(registrosDe(e.id));
+    const validos = rows.filter((r) => (parseInt(r.reps) || 0) > 0);
+    if (!validos.length) return;
+    nEx++;
+    validos.forEach((r, k) => {
+      const carga = parseFloat((r.carga || "0").replace(",", ".")) || 0, reps = parseInt(r.reps) || 0;
+      DB.registros.push({ id: uid(), perfil: PF(), exercicioId: e.id, exercicioNome: e.nome, dataMs: sessao.ts, serieIndex: k + 1, carga, reps, rpe: null });
+      vol += carga * reps; if (carga > prevPr && carga > 0) prs++;
+    });
+  });
+  save();
+  sessao = null;
+  openSheet("Treino concluído! 🎉", `<div class="muted">Você registrou <b>${nEx}</b> exercício${nEx === 1 ? "" : "s"}.</div>
+    <div class="stats" style="margin-top:12px"><div class="stat"><div class="v">${fmtCarga(vol)}<span style="font-size:12px"> kg</span></div><div class="l">Volume total</div></div><div class="stat"><div class="v">${prs}</div><div class="l">Recordes</div></div></div>`,
+    [{ label: "Fechar", primary: true, onClick: () => setTab("inicio") }]);
 }
 
 /* ---- Dashboard do ciclo ---- */
@@ -1016,10 +1108,45 @@ function renderHistEx(r) {
     <div class="hd"><div class="hd-row"><button class="backbtn" id="bk">‹</button><div class="col"><span class="eyebrow">Histórico</span><span class="title">${esc(r.nome || "Exercício")}</span></div></div></div>
     <div class="stats"><div class="stat"><div class="v">${pr > 0 ? fmtCarga(pr) + " kg" : "—"}</div><div class="l">Recorde</div></div><div class="stat"><div class="v">${sess.length}</div><div class="l">Sessões</div></div></div>
     ${dados.length >= 2 ? `<div class="card pad"><div class="lbl">Carga máxima por sessão</div><div class="bars">${dados.map((s) => { const c = Math.max(0, ...s.sets.map((x) => x.carga)); return `<div class="bar" style="height:${Math.max(8, c / max * 100)}%" title="${fmtCarga(c)}kg"></div>`; }).join("")}</div></div>` : ""}
-    ${sess.length ? sess.map((s) => `<div class="card erow"><div class="col" style="flex:1"><div class="es" style="color:var(--accent);font-weight:700">${fmtData(s.dataMs)}</div><div class="en" style="font-weight:600">${esc(resumoSets(s.sets))}</div>${s.sets.find((x) => x.rpe) ? `<div class="es">RPE ${s.sets.find((x) => x.rpe).rpe}</div>` : ""}</div><button class="mini" data-delses="${s.dataMs}">🗑</button></div>`).join("") : `<div class="empty">Nenhuma sessão registrada.</div>`}
+    ${sess.length ? sess.map((s) => `<div class="card erow"><div class="col" style="flex:1"><div class="es" style="color:var(--accent);font-weight:700">${fmtData(s.dataMs)}</div><div class="en" style="font-weight:600">${esc(resumoSets(s.sets))}</div>${s.sets.find((x) => x.rpe) ? `<div class="es">RPE ${s.sets.find((x) => x.rpe).rpe}</div>` : ""}</div><button class="mini" data-editses="${s.dataMs}">✎</button><button class="mini" data-delses="${s.dataMs}">🗑</button></div>`).join("") : `<div class="empty">Nenhuma sessão registrada.</div>`}
     <div style="height:16px"></div>`;
   document.getElementById("bk").onclick = back;
-  view().querySelectorAll("[data-delses]").forEach((b) => b.onclick = () => { const ms = +b.dataset.delses; DB.registros = DB.registros.filter((x) => !(x.exercicioId === r.exId && x.perfil === PF() && x.dataMs === ms)); save(); render(); });
+  view().querySelectorAll("[data-editses]").forEach((b) => b.onclick = () => editarSessao(r.exId, r.nome, +b.dataset.editses));
+  view().querySelectorAll("[data-delses]").forEach((b) => b.onclick = () => { const ms = +b.dataset.delses; confirmar("Apagar essa sessão?", fmtData(ms) + " · " + esc(r.nome || ""), () => { DB.registros = DB.registros.filter((x) => !(x.exercicioId === r.exId && x.perfil === PF() && x.dataMs === ms)); save(); render(); }); });
+}
+/* ---- Editar uma sessão registrada ---- */
+function editarSessao(exId, nome, dataMs) {
+  const atuais = DB.registros.filter((x) => x.exercicioId === exId && x.perfil === PF() && x.dataMs === dataMs).sort((a, b) => a.serieIndex - b.serieIndex);
+  const rows = atuais.map((x) => ({ carga: x.carga > 0 ? fmtCarga(x.carga) : "0", reps: "" + x.reps, done: true }));
+  if (!rows.length) rows.push({ carga: "0", reps: "0", done: true });
+  const body = () => `<div class="muted">${fmtData(dataMs)}</div>
+    <div class="setcols" style="margin-top:8px"><div style="width:30px"></div><div class="c">Carga (kg)</div><div class="c">Reps</div><div style="width:40px"></div></div>
+    <div id="erows">${rows.map((r, k) => sessRow(r, k)).join("")}</div>
+    <div class="row" style="margin-top:8px"><button class="mini" id="eless">− série</button><button class="mini" id="emore">+ série</button></div>`;
+  const m = openSheet("Editar — " + esc(nome || ""), body(), [{ label: "Salvar", primary: true, keep: true, onClick: () => {
+    const validos = rows.filter((r) => (parseInt(r.reps) || 0) > 0);
+    DB.registros = DB.registros.filter((x) => !(x.exercicioId === exId && x.perfil === PF() && x.dataMs === dataMs));
+    validos.forEach((r, k) => DB.registros.push({ id: uid(), perfil: PF(), exercicioId: exId, exercicioNome: nome, dataMs, serieIndex: k + 1, carga: parseFloat((r.carga || "0").replace(",", ".")) || 0, reps: parseInt(r.reps) || 0, rpe: null }));
+    save(); closeSheet(); toast("Sessão atualizada"); render();
+  } }]);
+  function ew() {
+    m.querySelectorAll(".setrow").forEach((row) => {
+      const k = +row.dataset.i;
+      row.querySelectorAll(".stepval").forEach((inp) => inp.oninput = () => { rows[k][inp.dataset.v === "c" ? "carga" : "reps"] = inp.value; });
+      row.querySelectorAll("[data-dec],[data-inc]").forEach((btn) => btn.onclick = () => {
+        const field = (btn.dataset.dec || btn.dataset.inc) === "c" ? "carga" : "reps";
+        const step = field === "carga" ? 5 : 1, dir = btn.hasAttribute("data-inc") ? 1 : -1;
+        let v = parseFloat((rows[k][field] || "0").replace(",", ".")) || 0; v = Math.max(0, v + dir * step);
+        rows[k][field] = field === "carga" ? fmtCarga(v) : "" + Math.round(v);
+        row.querySelector(`.stepval[data-v="${field === "carga" ? "c" : "r"}"]`).value = rows[k][field];
+      });
+      row.querySelector("[data-chk]").onclick = () => { rows[k].done = !rows[k].done; row.querySelector(".check").classList.toggle("on", rows[k].done); };
+    });
+    document.getElementById("eless").onclick = () => { if (rows.length > 1) { rows.pop(); edraw(); } };
+    document.getElementById("emore").onclick = () => { const last = rows[rows.length - 1]; rows.push({ carga: last ? last.carga : "0", reps: last ? last.reps : "0", done: true }); edraw(); };
+  }
+  function edraw() { m.querySelector("#erows").innerHTML = rows.map((r, k) => sessRow(r, k)).join(""); ew(); }
+  ew();
 }
 
 /* ---- Histórico geral ---- */
